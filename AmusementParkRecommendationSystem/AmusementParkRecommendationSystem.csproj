@@ -13,6 +13,11 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />    <PackageReference Include="Microsoft.SemanticKernel" Version="1.54.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.54.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Planners.Handlebars" Version="1.47.0-preview" />
+    
+    <!-- 地理位置服务相关包 -->
+    <PackageReference Include="NetTopologySuite" Version="2.5.0" />
+    <PackageReference Include="System.Net.Http.Json" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>

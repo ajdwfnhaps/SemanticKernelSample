@@ -18,18 +18,18 @@ class Program
 
         try
         {        // 配置服务
-            var serviceProvider = ConfigureServices();        // 获取服务
+            var serviceProvider = ConfigureServices();            // 获取服务
             var dataService = serviceProvider.GetRequiredService<DataService>();
             var aiService = serviceProvider.GetRequiredService<AIRecommendationService>();
             var enhancedAiService = serviceProvider.GetRequiredService<EnhancedAIRecommendationService>();
             var agentManager = serviceProvider.GetRequiredService<AgentManager>();
+            var tripRecommendationService = serviceProvider.GetRequiredService<TripRecommendationService>();
 
             // 显示集成的智能体列表
             await DisplayIntegratedAgentsAsync(agentManager);
 
             while (true)
-            {
-                Console.WriteLine("请选择操作:");
+            {                Console.WriteLine("请选择操作:");
                 Console.WriteLine("=== 基础功能 ===");
                 Console.WriteLine("1. 查看所有会员");
                 Console.WriteLine("2. 查看会员详细信息");
@@ -44,8 +44,15 @@ class Program
                 Console.WriteLine("9. 客户生命周期价值分析");
                 Console.WriteLine("10. 个性化深度推荐");
                 Console.WriteLine();
+                Console.WriteLine("=== 位置智能服务 ===");
+                Console.WriteLine("11. 查看门店位置信息");
+                Console.WriteLine("12. 客户位置邀请服务");
+                Console.WriteLine("13. 智能行程规划");
+                Console.WriteLine("14. 附近景点推荐");
+                Console.WriteLine("15. 天气与实时建议");
+                Console.WriteLine();
                 Console.WriteLine("0. 退出系统");
-                Console.Write("请输入选项 (0-10): ");
+                Console.Write("请输入选项 (0-15): ");
 
                 var choice = Console.ReadLine();
                 Console.WriteLine(); switch (choice)
@@ -76,9 +83,23 @@ class Program
                         break;
                     case "9":
                         await AnalyzeCustomerLifetimeValueAsync(enhancedAiService, dataService);
-                        break;
-                    case "10":
+                        break;                    case "10":
                         await GeneratePersonalizedRecommendationAsync(enhancedAiService, dataService);
+                        break;
+                    case "11":
+                        await ShowStoreLocationsAsync(dataService);
+                        break;
+                    case "12":
+                        await InviteNearbyCustomersAsync(tripRecommendationService, dataService);
+                        break;
+                    case "13":
+                        await GenerateTripPlanAsync(tripRecommendationService, dataService);
+                        break;
+                    case "14":
+                        await RecommendNearbyAttractionsAsync(tripRecommendationService);
+                        break;
+                    case "15":
+                        await ShowWeatherAndRealtimeAdviceAsync(tripRecommendationService);
                         break;
                     case "0":
                         Console.WriteLine("感谢使用智能推荐系统，再见！");
@@ -192,10 +213,19 @@ class Program
             {
                 Timeout = TimeSpan.FromMinutes(5)
             };
-        });
-
-        // 添加增强AI推荐服务 (Agent-based)
+        });        // 添加增强AI推荐服务 (Agent-based)
         services.AddSingleton<EnhancedAIRecommendationService>();
+
+        // 添加内存缓存服务 - MapApiService 需要
+        services.AddMemoryCache();
+
+        // 添加位置服务相关组件
+        services.AddSingleton<MapApiService>();
+        services.AddSingleton<POIService>();
+        services.AddSingleton<WeatherService>();
+        services.AddSingleton<NotificationService>();
+        services.AddSingleton<LocationService>();
+        services.AddSingleton<TripRecommendationService>();
 
         return services.BuildServiceProvider();
     }    /// <summary>
@@ -740,9 +770,323 @@ class Program
         Console.WriteLine("=".PadRight(50, '='));
         Console.WriteLine();
 
-        // 短暂延迟以便用户阅读
-        await Task.Delay(1500);
+        // 短暂延迟以便用户阅读        await Task.Delay(1500);
     }
 
     #endregion
+
+    #region 位置智能服务方法
+
+    /// <summary>
+    /// 显示门店位置信息
+    /// </summary>
+    private static async Task ShowStoreLocationsAsync(DataService dataService)
+    {
+        Console.WriteLine("=== 门店位置信息 ===");
+        var stores = dataService.GetAllStoreLocations();
+        
+        if (!stores.Any())
+        {
+            Console.WriteLine("暂无门店信息。");
+            return;
+        }
+
+        foreach (var store in stores)
+        {
+            Console.WriteLine($"[{store.Id}] {store.Name}");
+            Console.WriteLine($"   地址: {store.Address}");
+            Console.WriteLine($"   坐标: {store.Latitude:F6}, {store.Longitude:F6}");
+            Console.WriteLine($"   营业时间: {store.BusinessHours}");
+            Console.WriteLine($"   联系电话: {store.ContactPhone}");
+            Console.WriteLine($"   评分: {store.Rating:F1}/5.0");            Console.WriteLine($"   特色项目: {string.Join(", ", store.Features)}");
+            Console.WriteLine($"   描述: {store.Description}");
+            Console.WriteLine();
+        }
+        
+        // 添加模拟异步操作以消除编译警告
+        await Task.Delay(10);
+    }
+
+    /// <summary>
+    /// 客户位置邀请服务
+    /// </summary>
+    private static async Task InviteNearbyCustomersAsync(TripRecommendationService tripService, DataService dataService)
+    {
+        Console.WriteLine("=== 客户位置邀请服务 ===");
+        
+        // 显示可用门店
+        var stores = dataService.GetAllStoreLocations();
+        Console.WriteLine("可用门店:");
+        foreach (var store in stores)
+        {
+            Console.WriteLine($"[{store.Id}] {store.Name} - {store.Address}");
+        }
+        
+        Console.Write("请输入门店ID: ");
+        if (!int.TryParse(Console.ReadLine(), out int storeId))
+        {
+            Console.WriteLine("无效的门店ID。");
+            return;
+        }
+
+        Console.Write("请输入邀请半径(米，默认2000): ");
+        var radiusInput = Console.ReadLine();
+        double radius = 2000;
+        if (!string.IsNullOrEmpty(radiusInput) && double.TryParse(radiusInput, out var customRadius))
+        {
+            radius = customRadius;
+        }
+
+        try
+        {
+            Console.WriteLine($"正在检查门店 {storeId} 附近 {radius}米范围内的客户...");
+            var invitations = await tripService.CheckAndInviteNearbyCustomersAsync(storeId, radius);
+            
+            if (!invitations.Any())
+            {
+                Console.WriteLine("附近暂无符合条件的客户。");
+                return;
+            }
+
+            Console.WriteLine($"找到 {invitations.Count} 位附近客户，已发送邀请:");
+            foreach (var invitation in invitations)
+            {
+                Console.WriteLine($"客户: {invitation.CustomerName} (ID: {invitation.CustomerId})");
+                Console.WriteLine($"距离: {invitation.Distance:F0}米");
+                Console.WriteLine($"预计响应率: {invitation.EstimatedResponseRate:P1}");
+                Console.WriteLine($"邀请内容: {invitation.Message}");
+                Console.WriteLine($"发送方式: {string.Join(", ", invitation.DeliveryMethods)}");
+                Console.WriteLine();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"邀请服务出现错误: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 智能行程规划
+    /// </summary>
+    private static async Task GenerateTripPlanAsync(TripRecommendationService tripService, DataService dataService)
+    {
+        Console.WriteLine("=== 智能行程规划 ===");
+        
+        // 显示客户偏好
+        var customerPreferences = dataService.GetAllCustomerLocationPreferences();
+        Console.WriteLine("可用客户:");
+        foreach (var customer in customerPreferences.Take(10))
+        {
+            Console.WriteLine($"[{customer.CustomerId}] {customer.Name} (年龄: {customer.Age})");
+        }
+        
+        Console.Write("请输入客户ID: ");
+        if (!int.TryParse(Console.ReadLine(), out int customerId))
+        {
+            Console.WriteLine("无效的客户ID。");
+            return;
+        }
+
+        Console.Write("请输入目标门店ID (可选): ");
+        var storeInput = Console.ReadLine();
+        int? targetStoreId = null;
+        if (!string.IsNullOrEmpty(storeInput) && int.TryParse(storeInput, out var storeId))
+        {
+            targetStoreId = storeId;
+        }
+
+        try
+        {
+            Console.WriteLine("正在生成个性化行程计划...");
+            var tripPlan = await tripService.GeneratePersonalizedTripPlanAsync(customerId, targetStoreId);
+            
+            if (tripPlan == null)
+            {
+                Console.WriteLine("无法为该客户生成行程计划。");
+                return;
+            }
+
+            Console.WriteLine($"=== {tripPlan.CustomerName} 的专属行程计划 ===");
+            Console.WriteLine($"目标门店: {tripPlan.TargetStoreName}");
+            Console.WriteLine($"建议游览时间: {tripPlan.SuggestedStartTime:yyyy-MM-dd HH:mm}");
+            Console.WriteLine($"预计总时长: {tripPlan.EstimatedDuration}小时");
+            Console.WriteLine($"预算建议: ¥{tripPlan.EstimatedBudget}");
+            Console.WriteLine();            Console.WriteLine("=== 交通方案 ===");
+            if (tripPlan.Transportation.Any())
+            {
+                var mainTransport = tripPlan.Transportation.First();
+                Console.WriteLine($"推荐交通方式: {mainTransport.TransportType}");
+                Console.WriteLine($"路线: {mainTransport.Route}");
+                Console.WriteLine($"预计用时: {mainTransport.EstimatedDuration}分钟");
+                Console.WriteLine($"预计费用: ¥{mainTransport.EstimatedCost}");
+            }
+            Console.WriteLine();
+
+            if (tripPlan.Attractions.Any())
+            {
+                Console.WriteLine("=== 推荐景点 ===");
+                foreach (var attraction in tripPlan.Attractions)
+                {
+                    Console.WriteLine($"• {attraction.Name}");
+                    Console.WriteLine($"  类别: {attraction.Category}");
+                    Console.WriteLine($"  营业时间: {attraction.OpeningHours}");
+                    Console.WriteLine($"  推荐理由: {attraction.RecommendationReason}");
+                    Console.WriteLine();
+                }
+            }
+
+            if (tripPlan.DiningOptions.Any())
+            {
+                Console.WriteLine("=== 美食推荐 ===");
+                foreach (var dining in tripPlan.DiningOptions)
+                {
+                    Console.WriteLine($"• {dining.Name}");
+                    Console.WriteLine($"  类型: {dining.CuisineType}");
+                    Console.WriteLine($"  价位: {dining.PriceRange}");
+                    Console.WriteLine($"  推荐理由: {dining.RecommendationReason}");
+                    Console.WriteLine();
+                }
+            }
+
+            Console.WriteLine("=== 行程建议 ===");
+            foreach (var suggestion in tripPlan.Suggestions)
+            {
+                Console.WriteLine($"• {suggestion}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"行程规划出现错误: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 附近景点推荐
+    /// </summary>
+    private static async Task RecommendNearbyAttractionsAsync(TripRecommendationService tripService)
+    {
+        Console.WriteLine("=== 附近景点推荐 ===");
+        
+        Console.Write("请输入当前位置纬度: ");
+        if (!double.TryParse(Console.ReadLine(), out double latitude))
+        {
+            Console.WriteLine("无效的纬度值。");
+            return;
+        }
+
+        Console.Write("请输入当前位置经度: ");
+        if (!double.TryParse(Console.ReadLine(), out double longitude))
+        {
+            Console.WriteLine("无效的经度值。");
+            return;
+        }
+
+        Console.Write("请输入搜索半径(米，默认5000): ");
+        var radiusInput = Console.ReadLine();
+        double radius = 5000;
+        if (!string.IsNullOrEmpty(radiusInput) && double.TryParse(radiusInput, out var customRadius))
+        {
+            radius = customRadius;
+        }
+
+        try
+        {
+            Console.WriteLine($"正在搜索位置 ({latitude:F6}, {longitude:F6}) 附近 {radius}米范围内的景点...");
+            var attractions = await tripService.GetNearbyAttractionsAsync(latitude, longitude, radius);
+            
+            if (!attractions.Any())
+            {
+                Console.WriteLine("附近暂无推荐景点。");
+                return;
+            }
+
+            Console.WriteLine($"找到 {attractions.Count} 个推荐景点:");
+            foreach (var attraction in attractions)
+            {
+                Console.WriteLine($"• {attraction.Name}");
+                Console.WriteLine($"  类别: {attraction.Category}");
+                Console.WriteLine($"  地址: {attraction.Address}");
+                Console.WriteLine($"  距离: {attraction.DistanceFromStore:F1}公里");
+                Console.WriteLine($"  营业时间: {attraction.OpeningHours}");
+                if (!string.IsNullOrEmpty(attraction.Phone))
+                {
+                    Console.WriteLine($"  联系电话: {attraction.Phone}");
+                }
+                Console.WriteLine();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"景点推荐出现错误: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 天气与实时建议
+    /// </summary>
+    private static async Task ShowWeatherAndRealtimeAdviceAsync(TripRecommendationService tripService)
+    {
+        Console.WriteLine("=== 天气与实时建议 ===");
+        
+        Console.Write("请输入位置纬度 (默认北京: 39.9042): ");
+        var latInput = Console.ReadLine();
+        double latitude = 39.9042;
+        if (!string.IsNullOrEmpty(latInput) && double.TryParse(latInput, out var customLat))
+        {
+            latitude = customLat;
+        }
+
+        Console.Write("请输入位置经度 (默认北京: 116.4074): ");
+        var lonInput = Console.ReadLine();
+        double longitude = 116.4074;
+        if (!string.IsNullOrEmpty(lonInput) && double.TryParse(lonInput, out var customLon))
+        {
+            longitude = customLon;
+        }
+
+        try
+        {
+            Console.WriteLine($"正在获取位置 ({latitude:F4}, {longitude:F4}) 的天气信息和建议...");
+            var advice = await tripService.GetWeatherBasedAdviceAsync(latitude, longitude);
+            
+            Console.WriteLine("=== 当前天气状况 ===");
+            Console.WriteLine($"天气: {advice.CurrentWeather}");
+            Console.WriteLine($"温度: {advice.Temperature}°C");
+            Console.WriteLine($"湿度: {advice.Humidity}%");
+            Console.WriteLine($"风速: {advice.WindSpeed} km/h");
+            Console.WriteLine();
+
+            Console.WriteLine("=== 出行建议 ===");
+            foreach (var suggestion in advice.Suggestions)
+            {
+                Console.WriteLine($"• {suggestion}");
+            }
+            Console.WriteLine();
+
+            if (advice.RecommendedActivities.Any())
+            {
+                Console.WriteLine("=== 推荐活动 ===");
+                foreach (var activity in advice.RecommendedActivities)
+                {
+                    Console.WriteLine($"• {activity}");
+                }
+                Console.WriteLine();
+            }
+
+            if (advice.WarningMessages.Any())
+            {
+                Console.WriteLine("=== 注意事项 ===");
+                foreach (var warning in advice.WarningMessages)
+                {
+                    Console.WriteLine($"⚠️ {warning}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"天气服务出现错误: {ex.Message}");
+        }
+    }
+
+#endregion
 }
