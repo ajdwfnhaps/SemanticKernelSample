@@ -738,9 +738,7 @@ class Program
         Console.WriteLine();
 
         Console.WriteLine("[智能体] 集成的专业智能体:");
-        Console.WriteLine("-".PadRight(50, '-'));
-
-        // 定义智能体的中文名称和描述
+        Console.WriteLine("-".PadRight(50, '-'));        // 定义智能体的中文名称和描述
         var agentDescriptions = new Dictionary<string, (string ChineseName, string Description)>
         {
             ["BusinessAnalyst"] = ("业务分析师", "深度分析业务数据，识别关键趋势和机会"),
@@ -749,8 +747,12 @@ class Program
             ["OperationsExpert"] = ("运营优化专家", "提升运营效率，优化客户体验"),
             ["PersonalizationExpert"] = ("个性化服务专家", "生成高度个性化的产品和服务推荐"),
             ["DataScientist"] = ("数据科学家", "复杂数据分析、统计建模和预测"),
-            ["CustomerSuccessManager"] = ("客户成功经理", "提升客户满意度，预防流失，优化生命周期价值")
-        }; foreach (var agentName in availableAgents)
+            ["CustomerSuccessManager"] = ("客户成功经理", "提升客户满意度，预防流失，优化生命周期价值"),
+            ["LocationIntelligenceAgent"] = ("位置智能专家", "基于地理位置分析客户行为和推荐策略"),
+            ["TripPlannerAgent"] = ("行程规划专家", "根据客户位置和偏好定制最佳游览路线"),
+            ["DiningRecommendationAgent"] = ("餐饮推荐专家", "根据客户特征和位置提供个性化餐饮建议"),
+            ["WeatherAndRealtimeAgent"] = ("天气与实时信息专家", "分析天气状况和实时数据为游客提供即时游玩建议")
+        };foreach (var agentName in availableAgents)
         {
             if (agentDescriptions.TryGetValue(agentName, out var info))
             {
