@@ -1,11 +1,12 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using AmusementParkRecommendationSystem.Filter;
+using AmusementParkRecommendationSystem.Models;
+using AmusementParkRecommendationSystem.Plugins;
+using AmusementParkRecommendationSystem.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using AmusementParkRecommendationSystem.Services;
-using AmusementParkRecommendationSystem.Plugins;
-using AmusementParkRecommendationSystem.Models;
 
 namespace AmusementParkRecommendationSystem;
 
@@ -29,7 +30,8 @@ class Program
             await DisplayIntegratedAgentsAsync(agentManager);
 
             while (true)
-            {                Console.WriteLine("请选择操作:");
+            {
+                Console.WriteLine("请选择操作:");
                 Console.WriteLine("=== 基础功能 ===");
                 Console.WriteLine("1. 查看所有会员");
                 Console.WriteLine("2. 查看会员详细信息");
@@ -83,7 +85,8 @@ class Program
                         break;
                     case "9":
                         await AnalyzeCustomerLifetimeValueAsync(enhancedAiService, dataService);
-                        break;                    case "10":
+                        break;
+                    case "10":
                         await GeneratePersonalizedRecommendationAsync(enhancedAiService, dataService);
                         break;
                     case "11":
@@ -153,6 +156,12 @@ class Program
         {
             var kernelBuilder = Kernel.CreateBuilder();
             var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+
+            // 添加日志过滤器
+            kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter>(_ => new LoggingFilter(logger));
+
+            // 添加SafePromptFilter
+            kernelBuilder.Services.AddSingleton<IPromptRenderFilter, SafePromptFilter>();
 
             // 优先尝试使用百炼服务
             var bailianService = serviceProvider.GetRequiredService<BailianChatService>();
@@ -227,10 +236,14 @@ class Program
         services.AddSingleton<LocationService>();
         services.AddSingleton<TripRecommendationService>();
 
+        // This filter outputs information about auto function invocation and returns overridden result
+
+        
+       
         return services.BuildServiceProvider();
     }    /// <summary>
-    /// 尝试添加Deepseek服务
-    /// </summary>
+         /// 尝试添加Deepseek服务
+         /// </summary>
     private static bool TryAddDeepseekService(IKernelBuilder kernelBuilder, IConfiguration configuration)
     {
         var deepseekApiKey = configuration["Deepseek:ApiKey"];
@@ -246,7 +259,8 @@ class Program
                 endpoint: new Uri(configuration["Deepseek:Endpoint"] ?? "https://api.deepseek.com/v1"),
                 httpClient: httpClient);
             return true;
-        }        return false;
+        }
+        return false;
     }
 
     /// <summary>
@@ -267,7 +281,8 @@ class Program
                 apiKey: azureOpenAiApiKey,
                 apiVersion: configuration["AzureOpenAI:ApiVersion"],
                 httpClient: httpClient);
-            return true;        }
+            return true;
+        }
 
         return false;
     }
@@ -752,7 +767,7 @@ class Program
             ["TripPlannerAgent"] = ("行程规划专家", "根据客户位置和偏好定制最佳游览路线"),
             ["DiningRecommendationAgent"] = ("餐饮推荐专家", "根据客户特征和位置提供个性化餐饮建议"),
             ["WeatherAndRealtimeAgent"] = ("天气与实时信息专家", "分析天气状况和实时数据为游客提供即时游玩建议")
-        };foreach (var agentName in availableAgents)
+        }; foreach (var agentName in availableAgents)
         {
             if (agentDescriptions.TryGetValue(agentName, out var info))
             {
@@ -786,7 +801,7 @@ class Program
     {
         Console.WriteLine("=== 门店位置信息 ===");
         var stores = dataService.GetAllStoreLocations();
-        
+
         if (!stores.Any())
         {
             Console.WriteLine("暂无门店信息。");
@@ -800,11 +815,11 @@ class Program
             Console.WriteLine($"   坐标: {store.Latitude:F6}, {store.Longitude:F6}");
             Console.WriteLine($"   营业时间: {store.BusinessHours}");
             Console.WriteLine($"   联系电话: {store.ContactPhone}");
-            Console.WriteLine($"   评分: {store.Rating:F1}/5.0");            Console.WriteLine($"   特色项目: {string.Join(", ", store.Features)}");
+            Console.WriteLine($"   评分: {store.Rating:F1}/5.0"); Console.WriteLine($"   特色项目: {string.Join(", ", store.Features)}");
             Console.WriteLine($"   描述: {store.Description}");
             Console.WriteLine();
         }
-        
+
         // 添加模拟异步操作以消除编译警告
         await Task.Delay(10);
     }
@@ -815,7 +830,7 @@ class Program
     private static async Task InviteNearbyCustomersAsync(TripRecommendationService tripService, DataService dataService)
     {
         Console.WriteLine("=== 客户位置邀请服务 ===");
-        
+
         // 显示可用门店
         var stores = dataService.GetAllStoreLocations();
         Console.WriteLine("可用门店:");
@@ -823,7 +838,7 @@ class Program
         {
             Console.WriteLine($"[{store.Id}] {store.Name} - {store.Address}");
         }
-        
+
         Console.Write("请输入门店ID: ");
         if (!int.TryParse(Console.ReadLine(), out int storeId))
         {
@@ -843,7 +858,7 @@ class Program
         {
             Console.WriteLine($"正在检查门店 {storeId} 附近 {radius}米范围内的客户...");
             var invitations = await tripService.CheckAndInviteNearbyCustomersAsync(storeId, radius);
-            
+
             if (!invitations.Any())
             {
                 Console.WriteLine("附近暂无符合条件的客户。");
@@ -873,7 +888,7 @@ class Program
     private static async Task GenerateTripPlanAsync(TripRecommendationService tripService, DataService dataService)
     {
         Console.WriteLine("=== 智能行程规划 ===");
-        
+
         // 显示客户偏好
         var customerPreferences = dataService.GetAllCustomerLocationPreferences();
         Console.WriteLine("可用客户:");
@@ -881,7 +896,7 @@ class Program
         {
             Console.WriteLine($"[{customer.CustomerId}] {customer.Name} (年龄: {customer.Age})");
         }
-        
+
         Console.Write("请输入客户ID: ");
         if (!int.TryParse(Console.ReadLine(), out int customerId))
         {
@@ -901,7 +916,7 @@ class Program
         {
             Console.WriteLine("正在生成个性化行程计划...");
             var tripPlan = await tripService.GeneratePersonalizedTripPlanAsync(customerId, targetStoreId);
-            
+
             if (tripPlan == null)
             {
                 Console.WriteLine("无法为该客户生成行程计划。");
@@ -913,7 +928,7 @@ class Program
             Console.WriteLine($"建议游览时间: {tripPlan.SuggestedStartTime:yyyy-MM-dd HH:mm}");
             Console.WriteLine($"预计总时长: {tripPlan.EstimatedDuration}小时");
             Console.WriteLine($"预算建议: ¥{tripPlan.EstimatedBudget}");
-            Console.WriteLine();            Console.WriteLine("=== 交通方案 ===");
+            Console.WriteLine(); Console.WriteLine("=== 交通方案 ===");
             if (tripPlan.Transportation.Any())
             {
                 var mainTransport = tripPlan.Transportation.First();
@@ -968,7 +983,7 @@ class Program
     private static async Task RecommendNearbyAttractionsAsync(TripRecommendationService tripService)
     {
         Console.WriteLine("=== 附近景点推荐 ===");
-        
+
         Console.Write("请输入当前位置纬度: ");
         if (!double.TryParse(Console.ReadLine(), out double latitude))
         {
@@ -995,7 +1010,7 @@ class Program
         {
             Console.WriteLine($"正在搜索位置 ({latitude:F6}, {longitude:F6}) 附近 {radius}米范围内的景点...");
             var attractions = await tripService.GetNearbyAttractionsAsync(latitude, longitude, radius);
-            
+
             if (!attractions.Any())
             {
                 Console.WriteLine("附近暂无推荐景点。");
@@ -1029,7 +1044,7 @@ class Program
     private static async Task ShowWeatherAndRealtimeAdviceAsync(TripRecommendationService tripService)
     {
         Console.WriteLine("=== 天气与实时建议 ===");
-        
+
         Console.Write("请输入位置纬度 (默认北京: 39.9042): ");
         var latInput = Console.ReadLine();
         double latitude = 39.9042;
@@ -1050,7 +1065,7 @@ class Program
         {
             Console.WriteLine($"正在获取位置 ({latitude:F4}, {longitude:F4}) 的天气信息和建议...");
             var advice = await tripService.GetWeatherBasedAdviceAsync(latitude, longitude);
-            
+
             Console.WriteLine("=== 当前天气状况 ===");
             Console.WriteLine($"天气: {advice.CurrentWeather}");
             Console.WriteLine($"温度: {advice.Temperature}°C");
@@ -1090,5 +1105,5 @@ class Program
         }
     }
 
-#endregion
+    #endregion
 }
