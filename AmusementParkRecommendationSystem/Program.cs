@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using System.Diagnostics;
 
 namespace AmusementParkRecommendationSystem;
 
@@ -21,10 +22,10 @@ class Program
         {        // 配置服务
             var serviceProvider = ConfigureServices();            // 获取服务
             var dataService = serviceProvider.GetRequiredService<DataService>();
-            var aiService = serviceProvider.GetRequiredService<AIRecommendationService>();
-            var enhancedAiService = serviceProvider.GetRequiredService<EnhancedAIRecommendationService>();
+            var aiService = serviceProvider.GetRequiredService<AIRecommendationService>(); var enhancedAiService = serviceProvider.GetRequiredService<EnhancedAIRecommendationService>();
             var agentManager = serviceProvider.GetRequiredService<AgentManager>();
             var tripRecommendationService = serviceProvider.GetRequiredService<TripRecommendationService>();
+            var telemetryDemoService = serviceProvider.GetRequiredService<TelemetryDemoService>();
 
             // 显示集成的智能体列表
             await DisplayIntegratedAgentsAsync(agentManager);
@@ -45,16 +46,19 @@ class Program
                 Console.WriteLine("8. 运营建议生成");
                 Console.WriteLine("9. 客户生命周期价值分析");
                 Console.WriteLine("10. 个性化深度推荐");
-                Console.WriteLine();
-                Console.WriteLine("=== 位置智能服务 ===");
+                Console.WriteLine(); Console.WriteLine("=== 位置智能服务 ===");
                 Console.WriteLine("11. 查看门店位置信息");
                 Console.WriteLine("12. 客户位置邀请服务");
                 Console.WriteLine("13. 智能行程规划");
                 Console.WriteLine("14. 附近景点推荐");
                 Console.WriteLine("15. 天气与实时建议");
                 Console.WriteLine();
+                Console.WriteLine("=== OpenTelemetry 监控演示 ===");
+                Console.WriteLine("16. OpenTelemetry 追踪演示");
+                Console.WriteLine("17. 查看当前追踪信息");
+                Console.WriteLine();
                 Console.WriteLine("0. 退出系统");
-                Console.Write("请输入选项 (0-15): ");
+                Console.Write("请输入选项 (0-17): ");
 
                 var choice = Console.ReadLine();
                 Console.WriteLine(); switch (choice)
@@ -104,6 +108,12 @@ class Program
                     case "15":
                         await ShowWeatherAndRealtimeAdviceAsync(tripRecommendationService);
                         break;
+                    case "16":
+                        await DemonstrateOpenTelemetryAsync(telemetryDemoService);
+                        break;
+                    case "17":
+                        ShowCurrentTraceInfo(telemetryDemoService);
+                        break;
                     case "0":
                         Console.WriteLine("感谢使用智能推荐系统，再见！");
                         return;
@@ -133,10 +143,15 @@ class Program
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .Build(); var services = new ServiceCollection();
+            .Build(); 
+        var services = new ServiceCollection();
 
         // 注册配置
         services.AddSingleton<IConfiguration>(configuration);
+
+        // 添加OpenTelemetry服务
+        services.AddOpenTelemetryServices(configuration);
+        services.AddSemanticKernelTracing();
 
         // 添加日志服务
         services.AddLogging(builder =>
@@ -145,10 +160,12 @@ class Program
         });
 
         // 添加数据服务
-        services.AddSingleton<DataService>();
-
-        // 注册插件
+        services.AddSingleton<DataService>();        // 注册插件
         services.AddSingleton<CoinPackageRecommendationPlugin>();
+
+        // 注册OpenTelemetry相关过滤器
+        services.AddSingleton<OpenTelemetryFunctionFilter>();
+        services.AddSingleton<OpenTelemetryPromptFilter>();
 
         // 添加百炼服务
         services.AddSingleton<BailianChatService>();        // 配置Kernel插件 - 修复循环依赖问题
@@ -159,6 +176,10 @@ class Program
 
             // 添加日志过滤器
             kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter>(_ => new LoggingFilter(logger));
+
+            // 添加OpenTelemetry过滤器
+            kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter>(serviceProvider.GetRequiredService<OpenTelemetryFunctionFilter>());
+            kernelBuilder.Services.AddSingleton<IPromptRenderFilter>(serviceProvider.GetRequiredService<OpenTelemetryPromptFilter>());
 
             // 添加SafePromptFilter
             kernelBuilder.Services.AddSingleton<IPromptRenderFilter, SafePromptFilter>();
@@ -226,9 +247,7 @@ class Program
         services.AddSingleton<EnhancedAIRecommendationService>();
 
         // 添加内存缓存服务 - MapApiService 需要
-        services.AddMemoryCache();
-
-        // 添加位置服务相关组件
+        services.AddMemoryCache();        // 添加位置服务相关组件
         services.AddSingleton<MapApiService>();
         services.AddSingleton<POIService>();
         services.AddSingleton<WeatherService>();
@@ -236,10 +255,13 @@ class Program
         services.AddSingleton<LocationService>();
         services.AddSingleton<TripRecommendationService>();
 
+        // 添加OpenTelemetry演示服务
+        services.AddSingleton<TelemetryDemoService>();
+
         // This filter outputs information about auto function invocation and returns overridden result
 
-        
-       
+
+
         return services.BuildServiceProvider();
     }    /// <summary>
          /// 尝试添加Deepseek服务
@@ -1103,6 +1125,221 @@ class Program
         {
             Console.WriteLine($"天气服务出现错误: {ex.Message}");
         }
+    }
+
+    #endregion
+
+    #region OpenTelemetry 演示方法
+
+    /// <summary>
+    /// 演示OpenTelemetry功能
+    /// </summary>
+    private static async Task DemonstrateOpenTelemetryAsync(TelemetryDemoService telemetryDemoService)
+    {
+        Console.WriteLine("=== OpenTelemetry 追踪演示 ===");
+        Console.WriteLine();
+        Console.WriteLine("请选择演示类型:");
+        Console.WriteLine("1. 基本追踪演示");
+        Console.WriteLine("2. 嵌套追踪演示");
+        Console.WriteLine("3. 错误处理演示");
+        Console.WriteLine("4. 自定义指标演示");
+        Console.WriteLine("5. 所有演示");
+        Console.Write("请选择 (1-5): ");
+
+        var choice = Console.ReadLine();
+        Console.WriteLine();
+
+        try
+        {
+            switch (choice)
+            {
+                case "1":
+                    await DemoBasicTracing(telemetryDemoService);
+                    break;
+                case "2":
+                    await DemoNestedTracing(telemetryDemoService);
+                    break;
+                case "3":
+                    await DemoErrorHandling(telemetryDemoService);
+                    break;
+                case "4":
+                    DemoCustomMetrics(telemetryDemoService);
+                    break;
+                case "5":
+                    await DemoAllTracingFeatures(telemetryDemoService);
+                    break;
+                default:
+                    Console.WriteLine("无效选项，使用基本追踪演示。");
+                    await DemoBasicTracing(telemetryDemoService);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"演示过程中出现错误: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 基本追踪演示
+    /// </summary>
+    private static async Task DemoBasicTracing(TelemetryDemoService telemetryDemoService)
+    {
+        Console.WriteLine("[演示] 基本追踪功能");
+        Console.WriteLine();
+
+        var result = await telemetryDemoService.DemonstrateTracingAsync("基本追踪演示");
+        Console.WriteLine($"演示结果: {result}");
+        Console.WriteLine();
+        Console.WriteLine("✓ 基本追踪演示完成！");
+        Console.WriteLine("  - 生成了追踪span");
+        Console.WriteLine("  - 记录了操作标签");
+        Console.WriteLine("  - 测量了操作耗时");
+    }
+
+    /// <summary>
+    /// 嵌套追踪演示
+    /// </summary>
+    private static async Task DemoNestedTracing(TelemetryDemoService telemetryDemoService)
+    {
+        Console.WriteLine("[演示] 嵌套追踪功能");
+        Console.WriteLine();
+
+        var result1 = await telemetryDemoService.DemonstrateTracingAsync("父级操作");
+        Console.WriteLine($"父级操作结果: {result1}");
+        Console.WriteLine();
+
+        var result2 = await telemetryDemoService.DemonstrateTracingAsync("子级操作");
+        Console.WriteLine($"子级操作结果: {result2}");
+        Console.WriteLine();
+
+        Console.WriteLine("✓ 嵌套追踪演示完成！");
+        Console.WriteLine("  - 创建了父子关系的span");
+        Console.WriteLine("  - 记录了嵌套操作的层次结构");
+    }
+
+    /// <summary>
+    /// 错误处理演示
+    /// </summary>
+    private static async Task DemoErrorHandling(TelemetryDemoService telemetryDemoService)
+    {
+        Console.WriteLine("[演示] 错误处理追踪");
+        Console.WriteLine();
+
+        try
+        {
+            // 模拟一个会抛出错误的操作
+            await Task.Run(() =>
+            {
+                throw new InvalidOperationException("这是一个演示错误");
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"捕获到演示错误: {ex.Message}");
+
+            // 使用遥测服务记录错误信息
+            telemetryDemoService.RecordCustomMetrics("error_count", 1, new Dictionary<string, object>
+            {
+                ["error_type"] = ex.GetType().Name,
+                ["operation"] = "演示错误处理"
+            });
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("✓ 错误处理演示完成！");
+        Console.WriteLine("  - 记录了错误状态");
+        Console.WriteLine("  - 生成了错误指标");
+        Console.WriteLine("  - 保持了追踪上下文");
+    }
+
+    /// <summary>
+    /// 自定义指标演示
+    /// </summary>
+    private static void DemoCustomMetrics(TelemetryDemoService telemetryDemoService)
+    {
+        Console.WriteLine("[演示] 自定义指标功能");
+        Console.WriteLine();
+
+        // 记录一些自定义指标
+        telemetryDemoService.RecordCustomMetrics("user_action_count", 1, new Dictionary<string, object>
+        {
+            ["action_type"] = "demo_execution",
+            ["user_type"] = "administrator"
+        });
+
+        telemetryDemoService.RecordCustomMetrics("system_performance", 0.85, new Dictionary<string, object>
+        {
+            ["metric_type"] = "cpu_usage",
+            ["system"] = "recommendation_engine"
+        });
+
+        telemetryDemoService.RecordCustomMetrics("business_kpi", 127.5, new Dictionary<string, object>
+        {
+            ["kpi_type"] = "revenue_per_user",
+            ["period"] = "daily"
+        });
+
+        Console.WriteLine("✓ 自定义指标演示完成！");
+        Console.WriteLine("  - 记录了用户行为指标");
+        Console.WriteLine("  - 记录了系统性能指标");
+        Console.WriteLine("  - 记录了业务KPI指标");
+    }
+
+    /// <summary>
+    /// 所有追踪功能演示
+    /// </summary>
+    private static async Task DemoAllTracingFeatures(TelemetryDemoService telemetryDemoService)
+    {
+        Console.WriteLine("[演示] 完整的OpenTelemetry功能展示");
+        Console.WriteLine();
+
+        Console.WriteLine("1. 基本追踪...");
+        await DemoBasicTracing(telemetryDemoService);
+        Console.WriteLine();
+
+        Console.WriteLine("2. 嵌套追踪...");
+        await DemoNestedTracing(telemetryDemoService);
+        Console.WriteLine();
+
+        Console.WriteLine("3. 错误处理...");
+        await DemoErrorHandling(telemetryDemoService);
+        Console.WriteLine();
+
+        Console.WriteLine("4. 自定义指标...");
+        DemoCustomMetrics(telemetryDemoService);
+        Console.WriteLine();
+
+        Console.WriteLine("🎉 所有OpenTelemetry功能演示完成！");
+        Console.WriteLine("现在可以在您的监控系统中查看生成的追踪数据和指标。");
+    }
+
+    /// <summary>
+    /// 显示当前追踪信息
+    /// </summary>
+    private static void ShowCurrentTraceInfo(TelemetryDemoService telemetryDemoService)
+    {
+        Console.WriteLine("=== 当前追踪信息 ===");
+        Console.WriteLine();
+
+        var traceInfo = telemetryDemoService.GetCurrentTraceInfo();
+        Console.WriteLine($"追踪状态: {traceInfo}");
+        Console.WriteLine();
+
+        Console.WriteLine("OpenTelemetry 配置信息:");
+        Console.WriteLine("- 追踪导出器: OTLP");
+        Console.WriteLine("- 导出端点: http://tracing-analysis-dc-sz.aliyuncs.com:8090");
+        Console.WriteLine("- 指标导出器: Prometheus");
+        Console.WriteLine("- 采样率: 100%");
+        Console.WriteLine();
+
+        Console.WriteLine("支持的追踪功能:");
+        Console.WriteLine("✓ HTTP客户端调用追踪");
+        Console.WriteLine("✓ Semantic Kernel函数调用追踪");
+        Console.WriteLine("✓ 自定义业务操作追踪");
+        Console.WriteLine("✓ 错误和异常追踪");
+        Console.WriteLine("✓ 性能指标收集");
+        Console.WriteLine("✓ 分布式追踪上下文传播");
     }
 
     #endregion
