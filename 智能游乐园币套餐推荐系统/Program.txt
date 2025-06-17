@@ -1,0 +1,221 @@
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel;
+using AmusementParkRecommendationSystem.Services;
+using AmusementParkRecommendationSystem.Plugins;
+using AmusementParkRecommendationSystem.Models;
+
+namespace AmusementParkRecommendationSystem;
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        Console.WriteLine("=== 智能游乐园币套餐推荐系统 ===");
+        Console.WriteLine();
+
+        try
+        {
+            // 配置服务
+            var serviceProvider = ConfigureServices();
+
+            // 获取服务
+            var dataService = serviceProvider.GetRequiredService<DataService>();
+            var aiService = serviceProvider.GetRequiredService<AIRecommendationService>();
+
+            while (true)
+            {
+                Console.WriteLine("请选择操作:");
+                Console.WriteLine("1. 查看所有会员");
+                Console.WriteLine("2. 查看会员详细信息");
+                Console.WriteLine("3. 为会员推荐币套餐");
+                Console.WriteLine("4. 查看所有币套餐");
+                Console.WriteLine("5. 退出系统");
+                Console.Write("请输入选项 (1-5): ");
+
+                var choice = Console.ReadLine();
+                Console.WriteLine(); 
+                switch (choice)
+                {
+                    case "1":
+                        ShowAllMembers(dataService);
+                        break;
+                    case "2":
+                        ShowMemberDetails(dataService);
+                        break;
+                    case "3":
+                        await RecommendCoinPackageAsync(aiService, dataService);
+                        break;
+                    case "4":
+                        ShowAllCoinPackages(dataService);
+                        break;
+                    case "5":
+                        Console.WriteLine("感谢使用智能推荐系统，再见！");
+                        return;
+                    default:
+                        Console.WriteLine("无效选项，请重新选择。");
+                        break;
+                }
+                Console.WriteLine();
+                Console.WriteLine("按 Enter 键继续...");
+                Console.ReadLine();
+                Console.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"系统出现错误: {ex.Message}");
+            Console.WriteLine("请检查配置文件中的API密钥设置。");
+        }
+    }
+
+    /// <summary>
+    /// 配置依赖注入服务
+    /// </summary>
+    private static ServiceProvider ConfigureServices()
+    {
+        // 加载配置
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .Build();
+
+        var services = new ServiceCollection();
+        
+        // 添加日志服务
+        services.AddLogging(builder =>
+        {
+            builder.AddConsole();
+        });
+        
+        // 添加数据服务
+        services.AddSingleton<DataService>();
+
+        // 注册插件
+        services.AddSingleton<CoinPackageRecommendationPlugin>();
+        
+        // 添加百炼服务
+        services.AddSingleton<BailianChatService>();
+        
+        // 配置Kernel插件 - 修复循环依赖问题
+        services.AddSingleton<Kernel>(serviceProvider =>
+        {
+            var kernelBuilder = Kernel.CreateBuilder();
+            var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+
+            // 优先尝试使用百炼服务
+            var bailianService = serviceProvider.GetRequiredService<BailianChatService>();
+            var bailianApiKey = configuration["Bailian:ApiKey"];
+            
+            if (!string.IsNullOrEmpty(bailianApiKey) && bailianApiKey != "your-bailian-api-key-here")
+            {
+                // 添加百炼服务
+                bailianService.AddBailianToKernel(kernelBuilder);
+                Console.WriteLine("✓ 使用 阿里云百炼 服务");
+            }
+            // 尝试使用Deepseek服务
+            else if (TryAddDeepseekService(kernelBuilder, configuration))
+            {
+                Console.WriteLine("✓ 使用 Deepseek 服务");
+            }
+            // 尝试使用Azure OpenAI服务
+            else if (TryAddAzureOpenAIService(kernelBuilder, configuration))
+            {
+                Console.WriteLine("✓ 使用 Azure OpenAI 服务");
+            }
+            else
+            {
+                // 没有配置有效的API密钥，使用模拟服务
+                Console.WriteLine("⚠️  未配置有效的API密钥，将使用备用推荐算法");
+                Console.WriteLine("   要使用AI功能，请在appsettings.json中配置百炼、Deepseek或Azure OpenAI密钥");
+            }
+
+            var kernel = kernelBuilder.Build();
+            var dataService = serviceProvider.GetRequiredService<DataService>();
+            var plugin = new CoinPackageRecommendationPlugin(dataService);
+            kernel.Plugins.AddFromObject(plugin, "CoinPackageRecommendation");
+            return kernel;
+        });
+
+        // 添加AI推荐服务
+        services.AddSingleton<AIRecommendationService>();
+
+        return services.BuildServiceProvider();
+    }
+    
+    /// <summary>
+    /// 尝试添加Deepseek服务
+    /// </summary>
+    private static bool TryAddDeepseekService(IKernelBuilder kernelBuilder, IConfiguration configuration)
+    {
+        var deepseekApiKey = configuration["Deepseek:ApiKey"];
+        
+        if (!string.IsNullOrEmpty(deepseekApiKey) && deepseekApiKey != "your-deepseek-api-key-here")
+        {
+            kernelBuilder.AddOpenAIChatCompletion(
+                modelId: configuration["Deepseek:ModelId"] ?? "deepseek-chat",
+                apiKey: deepseekApiKey,
+                endpoint: new Uri(configuration["Deepseek:Endpoint"] ?? "https://api.deepseek.com/v1"));
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// 尝试添加Azure OpenAI服务
+    /// </summary>
+    private static bool TryAddAzureOpenAIService(IKernelBuilder kernelBuilder, IConfiguration configuration)
+    {
+        var azureOpenAiApiKey = configuration["AzureOpenAI:ApiKey"];
+        
+        if (!string.IsNullOrEmpty(azureOpenAiApiKey) && azureOpenAiApiKey != "your-azure-openai-api-key-here")
+        {
+            kernelBuilder.AddAzureOpenAIChatCompletion(
+                deploymentName: configuration["AzureOpenAI:DeploymentName"] ?? "gpt-4",
+                endpoint: configuration["AzureOpenAI:Endpoint"] ?? "",
+                apiKey: azureOpenAiApiKey,
+                apiVersion: configuration["AzureOpenAI:ApiVersion"]);
+            return true;
+        }
+        
+        return false;
+    }
+
+    /// <summary>
+    /// 显示所有会员
+    /// </summary>
+    private static void ShowAllMembers(DataService dataService)
+    {
+        var members = dataService.GetAllMembers();
+
+        Console.WriteLine("=== 所有会员列表 ===");
+        Console.WriteLine();
+        Console.WriteLine($"{"ID",-4} {"姓名",-10} {"会员等级",-8} {"年龄",-4} {"总消费",-10} {"访问次数",-8} {"最后访问",-12}");
+        Console.WriteLine(new string('-', 65));
+
+        foreach (var member in members)
+        {
+            Console.WriteLine($"{member.Id,-4} {member.Name,-10} {member.MembershipLevel,-8} {member.Age,-4} {member.TotalSpent,-10:F2} {member.VisitCount,-8} {member.LastVisit,-12:yyyy-MM-dd}");
+        }
+    }
+
+    /// <summary>
+    /// 显示会员详细信息
+    /// </summary>
+    private static void ShowMemberDetails(DataService dataService)
+    {
+        Console.Write("请输入会员ID: ");
+        if (int.TryParse(Console.ReadLine(), out int memberId))
+        {
+            var member = dataService.GetMember(memberId);
+            if (member != null)
+            {
+                Console.WriteLine();
+                Console.WriteLine("=== 会员详细信息 ===");
+                Console.WriteLine($"ID: {member.Id}");
+                Console.WriteLine($"姓名: {member.Name}");
+                Console.WriteLine($"会员等级: {member.MembershipLevel}");
+                Console.WriteLine($"年龄: {member.Age} 岁");
+                Console.WriteLine($"性别: {member

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Milvus 使用说明 - Baodian.AI.SemanticKernel</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: #f9f9f9; color: #222; }
+        h1, h2, h3 { color: #2a5d9f; }
+        code, pre { background: #f4f4f4; border-radius: 4px; padding: 2px 6px; }
+        pre { padding: 12px; overflow-x: auto; }
+        .section { margin-bottom: 32px; }
+        ul { margin-left: 1.5em; }
+        table { border-collapse: collapse; margin: 12px 0; }
+        th, td { border: 1px solid #bbb; padding: 6px 12px; }
+        th { background: #e6f0fa; }
+    </style>
+</head>
+<body>
+    <h1>Milvus 使用说明</h1>
+    <p>本文档详细介绍 <b>Baodian.AI.SemanticKernel</b> 项目中 Milvus 相关服务的接口、参数、返回值及典型用法，供其他服务集成参考。</p>
+
+    <div class="section">
+        <h2>1. 依赖与环境准备</h2>
+        <ul>
+            <li>引用 <code>Baodian.AI.SemanticKernel</code> 包。</li>
+            <li>Milvus 服务需已部署并可访问。</li>
+            <li>依赖 .NET 6.0 或 8.0。</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>2. 配置与服务注册</h2>
+        <pre><code>services.AddMilvus(options => {
+    options.Host = "milvus.example.com";
+    options.Port = 19530;
+    options.Username = "your_user";
+    options.Password = "your_password";
+});
+</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>3. CollectionService - 集合管理</h2>
+        <ul>
+            <li><b>CreateCollectionAsync</b>(CreateCollectionRequest request): 创建集合</li>
+            <li><b>GetCollectionAsync</b>(string collectionName): 获取集合信息</li>
+            <li><b>ListCollectionsAsync</b>(): 列出所有集合</li>
+            <li><b>DeleteCollectionAsync</b>(string collectionName): 删除集合</li>
+            <li><b>LoadCollectionAsync</b>(string collectionName): 加载集合到内存</li>
+            <li><b>ReleaseCollectionAsync</b>(string collectionName): 释放集合内存</li>
+        </ul>
+        <h3>参数与返回值说明</h3>
+        <table>
+            <tr><th>方法</th><th>入参</th><th>出参</th></tr>
+            <tr><td>CreateCollectionAsync</td><td><b>CreateCollectionRequest</b><br>name: 集合名<br>description: 描述<br>fields: 字段定义列表<br>enableDynamicField: 是否动态字段</td><td><b>CollectionResponse</b><br>status, message, data: Collection</td></tr>
+            <tr><td>GetCollectionAsync</td><td>collectionName: 集合名</td><td>CollectionResponse</td></tr>
+            <tr><td>ListCollectionsAsync</td><td>无</td><td>CollectionResponse</td></tr>
+            <tr><td>DeleteCollectionAsync</td><td>collectionName: 集合名</td><td>无</td></tr>
+            <tr><td>LoadCollectionAsync</td><td>collectionName: 集合名</td><td>CollectionResponse</td></tr>
+            <tr><td>ReleaseCollectionAsync</td><td>collectionName: 集合名</td><td>CollectionResponse</td></tr>
+        </table>
+        <h4>字段结构说明</h4>
+        <pre><code>FieldSchema {
+    name: string;
+    dataType: string;
+    isPrimaryKey: bool;
+    autoId: bool;
+    typeParams: Dictionary<string, object>;
+    indexParams: Dictionary<string, object>;
+}
+</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>4. DataService - 数据操作</h2>
+        <ul>
+            <li><b>InsertAsync</b>(InsertRequest request): 插入数据</li>
+            <li><b>DeleteAsync</b>(DeleteRequest request): 删除数据</li>
+            <li><b>QueryAsync</b>(QueryRequest request): 查询数据</li>
+            <li><b>GetAsync</b>(string collectionName, string id): 按主键获取单条数据</li>
+        </ul>
+        <h3>参数与返回值说明</h3>
+        <table>
+            <tr><th>方法</th><th>入参</th><th>出参</th></tr>
+            <tr><td>InsertAsync</td><td><b>InsertRequest</b><br>collectionName: 集合名<br>data: List&lt;Dictionary&lt;string, object&gt;&gt;<br>partitionName: 分区名</td><td><b>DataResponse</b><br>status, message, data</td></tr>
+            <tr><td>DeleteAsync</td><td><b>DeleteRequest</b><br>collectionName: 集合名<br>expr: 过滤表达式<br>partitionName: 分区名</td><td>DataResponse</td></tr>
+            <tr><td>QueryAsync</td><td><b>QueryRequest</b><br>collectionName: 集合名<br>expr: 过滤表达式<br>outputFields: 输出字段<br>partitionName: 分区名</td><td>DataResponse</td></tr>
+            <tr><td>GetAsync</td><td>collectionName: 集合名<br>id: 主键</td><td>DataResponse</td></tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>5. SearchService - 向量检索</h2>
+        <ul>
+            <li><b>SearchAsync</b>(SearchRequest request): 检索</li>
+            <li><b>SearchAsync</b>(string collectionName, float[] vector, ...): 简化检索</li>
+        </ul>
+        <h3>参数与返回值说明</h3>
+        <table>
+            <tr><th>方法</th><th>入参</th><th>出参</th></tr>
+            <tr><td>SearchAsync</td><td><b>SearchRequest</b><br>collectionName: 集合名<br>vectors: List&lt;float[]&gt;<br>outputFields: 输出字段<br>topK: 返回数量<br>searchParams: 检索参数<br>expr: 过滤表达式</td><td><b>SearchResponse</b><br>status, message, data: List&lt;SearchResult&gt;</td></tr>
+        </table>
+        <h4>SearchResult 结构</h4>
+        <pre><code>SearchResult {
+    hits: List&lt;SearchHit&gt;;
+    score: float;
+}
+SearchHit {
+    fields: Dictionary&lt;string, object&gt;;
+    score: float;
+}
+</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>6. IndexService - 索引管理</h2>
+        <ul>
+            <li><b>CreateIndexAsync</b>(CreateIndexRequest request): 创建索引</li>
+            <li><b>GetIndexAsync</b>(string collectionName, string fieldName): 获取索引</li>
+            <li><b>ListIndexesAsync</b>(string collectionName): 列出集合所有索引</li>
+            <li><b>DeleteIndexAsync</b>(string collectionName, string fieldName): 删除索引</li>
+        </ul>
+        <h3>参数与返回值说明</h3>
+        <table>
+            <tr><th>方法</th><th>入参</th><th>出参</th></tr>
+            <tr><td>CreateIndexAsync</td><td><b>CreateIndexRequest</b><br>collectionName: 集合名<br>fieldName: 字段名<br>indexType: 索引类型<br>params: 参数</td><td><b>IndexResponse</b><br>status, message, data: IndexInfo</td></tr>
+            <tr><td>GetIndexAsync</td><td>collectionName: 集合名<br>fieldName: 字段名</td><td>IndexResponse</td></tr>
+            <tr><td>ListIndexesAsync</td><td>collectionName: 集合名</td><td>IndexResponse</td></tr>
+            <tr><td>DeleteIndexAsync</td><td>collectionName: 集合名<br>fieldName: 字段名</td><td>无</td></tr>
+        </table>
+        <h4>IndexInfo 结构</h4>
+        <pre><code>IndexInfo {
+    collectionName: string;
+    fieldName: string;
+    indexType: string;
+    params: Dictionary<string, object>;
+}
+</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>7. 典型用法示例</h2>
+        <pre><code>// 创建集合
+await collectionService.CreateCollectionAsync(new CreateCollectionRequest {
+    Name = "my_collection",
+    Description = "测试集合",
+    Fields = new List<FieldSchema> {
+        new FieldSchema {
+            Name = "id", DataType = "Int64", IsPrimaryKey = true, AutoId = true
+        },
+        new FieldSchema {
+            Name = "vector", DataType = "FloatVector", TypeParams = new Dictionary<string, object>{{"dim", 128}}
+        }
+    },
+    EnableDynamicField = false
+});
+
+// 插入数据
+await dataService.InsertAsync(new InsertRequest {
+    CollectionName = "my_collection",
+    Data = new List<Dictionary<string, object>> {
+        new Dictionary<string, object> { {"vector", new float[128] }, {"other_field", "value"} }
+    }
+});
+
+// 检索
+var result = await searchService.SearchAsync(new SearchRequest {
+    CollectionName = "my_collection",
+    Vectors = new List<float[]> { new float[128] },
+    TopK = 5,
+    OutputFields = "*"
+});
+</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>8. 常见问题</h2>
+        <ul>
+            <li>连接失败：请检查 Milvus 服务地址、端口、用户名密码及网络连通性。</li>
+            <li>参数校验：所有参数建议通过配置文件集中管理，便于维护。</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>9. 参考与支持</h2>
+        <ul>
+            <li>Milvus 官方文档：<a href="https://milvus.io/docs">https://milvus.io/docs</a></li>
+            <li>如需更多帮助，请联系本项目维护者或查阅源码。</li>
+        </ul>
+    </div>
+</body>
+</html>
