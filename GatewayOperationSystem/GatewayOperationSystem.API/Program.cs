@@ -32,6 +32,11 @@ builder.Services.AddSwaggerGen(c =>
 // 配置 Semantic Kernel
 builder.Services.AddBaodianSemanticKernel(builder.Configuration);
 
+// 注册 DeepSeek 嵌入生成服务（确保 deepseek-chat 模型名与配置一致）
+builder.Services.RegisterEmbeddingServices("deepseek-chat");
+builder.Services.AddAliyunTextEmbeddingService("sk-84fe6d17b0f44bbfb0e9e328af3eae1a", "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings");
+
+
 // 配置 Milvus 向量数据库
 builder.Services.AddMilvus((Action<Baodian.AI.SemanticKernel.Milvus.Configuration.MilvusOptions>)(options =>
 {

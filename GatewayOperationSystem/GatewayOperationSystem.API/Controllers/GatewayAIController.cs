@@ -1,3 +1,5 @@
+using Baodian.AI.SemanticKernel.Abstractions;
+using Baodian.AI.SemanticKernel.Constants;
 using Baodian.AI.SemanticKernel.Milvus.Models;
 using Baodian.AI.SemanticKernel.Milvus.Services;
 using GatewayOperationSystem.Core.Models;
@@ -19,21 +21,22 @@ namespace GatewayOperationSystem.API.Controllers;
 public class GatewayAIController : ControllerBase
 {
     private readonly Kernel _kernel;
-    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingService;
     private readonly ILogger<GatewayAIController> _logger;
     private readonly DataService _dataService;
     private readonly CollectionService _collectionService;
     private readonly SearchService _searchService;
+    private readonly IEmbeddingService _embeddingService;
 
     public GatewayAIController(
-        Kernel kernel,
+        IKernelFactory kernelFactory,
         DataService dataService,
         CollectionService collectionService,
         SearchService searchService,
-        IEmbeddingGenerator<string, Embedding<float>> embeddingService,
+        IEmbeddingService embeddingService,
+        //IEmbeddingGenerator<string, Embedding<float>> embeddingService,
         ILogger<GatewayAIController> logger)
     {
-        _kernel = kernel;
+        _kernel = kernelFactory.CreateKernel(ModelConstants.AliQwenMax);
         _dataService = dataService;
         _collectionService = collectionService;
         _searchService = searchService;
@@ -53,9 +56,8 @@ public class GatewayAIController : ControllerBase
                 return BadRequest("问题不能为空");
 
             // 生成嵌入向量用于搜索相关知识
-            var embeddings = await _embeddingService.GenerateAsync([request.Question]);
-            var queryEmbedding = embeddings.First().Vector.ToArray();            // 搜索相关知识库内容
-            var relatedKnowledge = await _searchService.SearchAsync("DB_Gate_Knowledge", queryEmbedding, 3);
+            var embeddings = await _embeddingService.GenerateEmbeddingAsync(request.Question);
+            var relatedKnowledge = await _searchService.SearchAsync("DB_Gate_Knowledge", embeddings, 3);
 
             // 构建上下文 - 从 SearchResponse.Data 中提取数据
             var contextList = new List<string>();
@@ -156,8 +158,8 @@ public class GatewayAIController : ControllerBase
                 return BadRequest("问题描述不能为空");
 
             // 生成嵌入向量
-            var embeddings = await _embeddingService.GenerateAsync([request.Problem]);
-            var queryEmbedding = embeddings.First().Vector.ToArray();            // 搜索相关解决方案
+            var embeddings = await _embeddingService.GenerateEmbeddingAsync(request.Problem);
+            var queryEmbedding = embeddings;//.First().Vector.ToArray();            // 搜索相关解决方案
             var solutions = await _searchService.SearchAsync("DB_Gate_Knowledge", queryEmbedding, 5);
 
             // 按分类整理解决方案 - 从 SearchResponse.Data 中提取数据

@@ -5,479 +5,324 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API 接口测试工具</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1, h2 { color: #333; }
-        .controller-section { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #fafafa; }
-        .endpoint { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #fff; }
-        .endpoint h3 { margin-top: 0; color: #555; }
-        .endpoint label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .endpoint input[type="text"],
-        .endpoint input[type="number"],
-        .endpoint textarea { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        .endpoint button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        .endpoint button:hover { background-color: #0056b3; }
-        .response-box, .request-box {
-            background-color: #e9e9e9;
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 4px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            max-height: 300px;
-            overflow-y: auto;
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #f4f6fb; }
+        .container { max-width: 1200px; margin: 40px auto; background: #fff; padding: 32px 24px; border-radius: 16px; box-shadow: 0 4px 32px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: #2d3a4b; margin-bottom: 32px; }
+        .controllers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); gap: 32px; }
+        .controller-section { background: #f8fafc; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 24px 18px 18px 18px; margin-bottom: 0; }
+        .controller-section h2 { color: #1a2233; font-size: 1.3em; margin-bottom: 18px; border-left: 4px solid #4f8cff; padding-left: 10px; }
+        .endpoint { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.03); margin-bottom: 18px; padding: 18px 14px; border-left: 5px solid #e3e8f0; }
+        .endpoint:last-child { margin-bottom: 0; }
+        .endpoint h3 { margin: 0 0 10px 0; font-size: 1.08em; color: #3a4a5d; }
+        .endpoint label { display: block; margin-bottom: 4px; font-weight: 500; color: #4f5b6b; }
+        .endpoint input[type="text"], .endpoint input[type="number"], .endpoint textarea {
+            width: 100%; padding: 8px 10px; margin-bottom: 10px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 1em; background: #f9fafb;
         }
-        .method-get { color: #28a745; }
-        .method-post { color: #ffc107; }
-        .method-put { color: #17a2b8; }
-        .method-delete { color: #dc3545; }
+        .endpoint textarea { min-height: 48px; resize: vertical; }
+        .endpoint button {
+            padding: 8px 18px; background: linear-gradient(90deg, #4f8cff 60%, #6ad1ff 100%); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; font-weight: 500; transition: background 0.2s;
+        }
+        .endpoint button:hover { background: linear-gradient(90deg, #357ae8 60%, #4f8cff 100%); }
+        .method-get { color: #22bb66; font-weight: bold; }
+        .method-post { color: #ffb300; font-weight: bold; }
+        .method-put { color: #17a2b8; font-weight: bold; }
+        .method-delete { color: #e74c3c; font-weight: bold; }
+        .request-box, .response-box {
+            background: #f3f6fa; border: 1px solid #e3e8f0; padding: 8px; border-radius: 4px; font-size: 0.98em; margin-top: 6px; margin-bottom: 8px; max-height: 180px; overflow-y: auto; white-space: pre-wrap;
+        }
+        .endpoint h4 { margin: 8px 0 2px 0; font-size: 0.98em; color: #6b7685; }
+        @media (max-width: 800px) {
+            .container { padding: 10px; }
+            .controllers-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>API 接口测试工具</h1>
-
-        <div class="controller-section">
-            <h2>AdminController</h2>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/Admin/database-stats</h3>
-                <button onclick="fetchAdminApi('database-stats', 'GET')">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-database-stats" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-database-stats" class="response-box"></div>
+        <div class="controllers-grid">
+            <!-- SystemController -->
+            <div class="controller-section">
+                <h2>SystemController</h2>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/System/health</h3>
+                    <button onclick="callApi(BASE_URL + '/api/System/health', 'GET', null, 'request-system-health', 'response-system-health')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-system-health" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-system-health" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/System/initialize</h3>
+                    <button onclick="callApi(BASE_URL + '/api/System/initialize', 'POST', null, 'request-system-init', 'response-system-init')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-system-init" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-system-init" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-delete">DELETE</span> /api/System/collections/{collectionName}/data</h3>
+                    <label for="system-clear-collection">Collection Name:</label>
+                    <input type="text" id="system-clear-collection" value="DB_Gate_Knowledge">
+                    <button onclick="callApi(BASE_URL + '/api/System/collections/' + document.getElementById('system-clear-collection').value + '/data', 'DELETE', null, 'request-system-clear', 'response-system-clear')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-system-clear" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-system-clear" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/System/statistics</h3>
+                    <button onclick="callApi(BASE_URL + '/api/System/statistics', 'GET', null, 'request-system-stat', 'response-system-stat')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-system-stat" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-system-stat" class="response-box"></div>
+                </div>
             </div>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/Admin/all-records</h3>
-                <button onclick="fetchAdminApi('all-records', 'GET')">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-all-records" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-all-records" class="response-box"></div>
+            <!-- DevelopmentController -->
+            <div class="controller-section">
+                <h2>DevelopmentController</h2>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/Development/test-data</h3>
+                    <button onclick="callApi(BASE_URL + '/api/Development/test-data', 'POST', null, 'request-dev-testdata', 'response-dev-testdata')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-dev-testdata" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-dev-testdata" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/Development/vector-search</h3>
+                    <label for="dev-vector-query">Query:</label>
+                    <input type="text" id="dev-vector-query" value="测试问题">
+                    <label for="dev-vector-topk">TopK:</label>
+                    <input type="number" id="dev-vector-topk" value="5">
+                    <button onclick="callApi(BASE_URL + '/api/Development/vector-search', 'POST', { Query: document.getElementById('dev-vector-query').value, TopK: parseInt(document.getElementById('dev-vector-topk').value) }, 'request-dev-vector', 'response-dev-vector')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-dev-vector" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-dev-vector" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/Development/comprehensive-test</h3>
+                    <button onclick="callApi(BASE_URL + '/api/Development/comprehensive-test', 'POST', null, 'request-dev-comprehensive', 'response-dev-comprehensive')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-dev-comprehensive" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-dev-comprehensive" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/Development/all-records</h3>
+                    <button onclick="callApi(BASE_URL + '/api/Development/all-records', 'GET', null, 'request-dev-allrecords', 'response-dev-allrecords')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-dev-allrecords" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-dev-allrecords" class="response-box"></div>
+                </div>
             </div>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/Admin/add-test-data</h3>
-                <button onclick="fetchAdminApi('add-test-data', 'POST')">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-add-test-data" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-add-test-data" class="response-box"></div>
+            <!-- AdminController -->
+            <div class="controller-section">
+                <h2>AdminController</h2>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/Admin/create-user</h3>
+                    <label for="admin-create-username">Username:</label>
+                    <input type="text" id="admin-create-username" value="">
+                    <label for="admin-create-password">Password:</label>
+                    <input type="password" id="admin-create-password" value="">
+                    <button onclick="callApi(BASE_URL + '/api/Admin/create-user', 'POST', { Username: document.getElementById('admin-create-username').value, Password: document.getElementById('admin-create-password').value }, 'request-admin-createuser', 'response-admin-createuser')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-admin-createuser" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-admin-createuser" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-delete">DELETE</span> /api/Admin/delete-user/{userId}</h3>
+                    <label for="admin-delete-userid">User ID:</label>
+                    <input type="text" id="admin-delete-userid" value="">
+                    <button onclick="callApi(BASE_URL + '/api/Admin/delete-user/' + document.getElementById('admin-delete-userid').value, 'DELETE', null, 'request-admin-deleteuser', 'response-admin-deleteuser')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-admin-deleteuser" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-admin-deleteuser" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/Admin/all-users</h3>
+                    <button onclick="callApi(BASE_URL + '/api/Admin/all-users', 'GET', null, 'request-admin-allusers', 'response-admin-allusers')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-admin-allusers" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-admin-allusers" class="response-box"></div>
+                </div>
             </div>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/Admin/test-vector-search</h3>
-                <label for="admin-search-query">Query:</label>
-                <input type="text" id="admin-search-query" value="测试问题">
-                <label for="admin-search-topk">TopK:</label>
-                <input type="number" id="admin-search-topk" value="5">
-                <button onclick="testAdminVectorSearch()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-test-vector-search" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-test-vector-search" class="response-box"></div>
+            <!-- GatewayAIController -->
+            <div class="controller-section">
+                <h2>GatewayAIController</h2>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/GatewayAI/chat</h3>
+                    <label for="ai-chat-question">Question:</label>
+                    <textarea id="ai-chat-question">闸机有什么常见故障？</textarea>
+                    <button onclick="callApi(BASE_URL + '/api/GatewayAI/chat', 'POST', { Question: document.getElementById('ai-chat-question').value }, 'request-ai-chat', 'response-ai-chat')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-ai-chat" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-ai-chat" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/GatewayAI/solutions</h3>
+                    <label for="ai-solutions-problem">Problem:</label>
+                    <textarea id="ai-solutions-problem">闸机无法正常开关</textarea>
+                    <label for="ai-solutions-category">Category (可选):</label>
+                    <input type="text" id="ai-solutions-category">
+                    <button onclick="callApi(BASE_URL + '/api/GatewayAI/solutions', 'POST', { Problem: document.getElementById('ai-solutions-problem').value, Category: document.getElementById('ai-solutions-category').value }, 'request-ai-solutions', 'response-ai-solutions')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-ai-solutions" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-ai-solutions" class="response-box"></div>
+                </div>
             </div>
-
-            <div class="endpoint">
-                <h3><span class="method-delete">DELETE</span> /api/Admin/clear-all-data/{collectionName}</h3>
-                <label for="admin-clear-collection-name">Collection Name:</label>
-                <input type="text" id="admin-clear-collection-name" value="DB_Gate_Knowledge">
-                <button onclick="clearAdminData()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-clear-all-data" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-clear-all-data" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/Admin/comprehensive-test</h3>
-                <button onclick="fetchAdminApi('comprehensive-test', 'GET')">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-comprehensive-test" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-comprehensive-test" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/Admin/init-collection</h3>
-                <button onclick="fetchAdminApi('init-collection', 'POST')">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-init-collection" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-init-collection" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/Admin/user/{userId}</h3>
-                <label for="admin-get-user-id">User ID:</label>
-                <input type="text" id="admin-get-user-id" value="testUser123">
-                <button onclick="getAdminUser()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-get-user" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-get-user" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-put">PUT</span> /api/Admin/user/{userId}</h3>
-                <label for="admin-update-user-id">User ID:</label>
-                <input type="text" id="admin-update-user-id" value="testUser123">
-                <label for="admin-update-new-name">New Name:</label>
-                <input type="text" id="admin-update-new-name" value="updatedUser">
-                <button onclick="updateAdminUser()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-update-user" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-update-user" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-delete">DELETE</span> /api/Admin/user/{userId}</h3>
-                <label for="admin-delete-user-id">User ID:</label>
-                <input type="text" id="admin-delete-user-id" value="testUser123">
-                <button onclick="deleteAdminUser()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-admin-delete-user" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-admin-delete-user" class="response-box"></div>
-            </div>
-        </div>
-
-        <div class="controller-section">
-            <h2>GatewayAIController</h2>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/GatewayAI/chat</h3>
-                <label for="ai-chat-question">Question:</label>
-                <textarea id="ai-chat-question">闸机有什么常见故障？</textarea>
-                <button onclick="chatGatewayAI()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-ai-chat" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-ai-chat" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/GatewayAI/solutions</h3>
-                <label for="ai-solutions-problem">Problem:</label>
-                <textarea id="ai-solutions-problem">闸机无法正常开关</textarea>
-                <label for="ai-solutions-category">Category (可选):</label>
-                <input type="text" id="ai-solutions-category">
-                <button onclick="getGatewayAISolutions()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-ai-solutions" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-ai-solutions" class="response-box"></div>
-            </div>
-        </div>
-
-        <div class="controller-section">
-            <h2>KnowledgeBaseController</h2>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/KnowledgeBase</h3>
-                <button onclick="fetchKnowledgeBaseApi('', 'GET')">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-get-all" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-get-all" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/KnowledgeBase/{id}</h3>
-                <label for="kb-get-id">ID:</label>
-                <input type="text" id="kb-get-id" value="在这里输入一个知识库ID">
-                <button onclick="getKnowledgeBaseById()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-get-by-id" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-get-by-id" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/KnowledgeBase</h3>
-                <label for="kb-create-title">Title:</label>
-                <input type="text" id="kb-create-title" value="测试知识库标题">
-                <label for="kb-create-content">Content:</label>
-                <textarea id="kb-create-content">这是测试知识库的内容。</textarea>
-                <label for="kb-create-summary">Summary (可选):</label>
-                <input type="text" id="kb-create-summary" value="测试摘要">
-                <label for="kb-create-category">Category (可选):</label>
-                <input type="text" id="kb-create-category" value="测试分类">
-                <label for="kb-create-tags">Tags (逗号分隔，可选):</label>
-                <input type="text" id="kb-create-tags" value="tag1,tag2">
-                <button onclick="createKnowledgeBase()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-create" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-create" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-put">PUT</span> /api/KnowledgeBase/{id}</h3>
-                <label for="kb-update-id">ID:</label>
-                <input type="text" id="kb-update-id" value="在这里输入要更新的知识库ID">
-                <label for="kb-update-title">Title (可选):</label>
-                <input type="text" id="kb-update-title" value="更新后的标题">
-                <label for="kb-update-content">Content (可选):</label>
-                <textarea id="kb-update-content">这是更新后的内容。</textarea>
-                <label for="kb-update-summary">Summary (可选):</label>
-                <input type="text" id="kb-update-summary">
-                <label for="kb-update-category">Category (可选):</label>
-                <input type="text" id="kb-update-category">
-                <label for="kb-update-tags">Tags (逗号分隔，可选):</label>
-                <input type="text" id="kb-update-tags">
-                <button onclick="updateKnowledgeBase()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-update" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-update" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-delete">DELETE</span> /api/KnowledgeBase/{id}</h3>
-                <label for="kb-delete-id">ID:</label>
-                <input type="text" id="kb-delete-id" value="在这里输入要删除的知识库ID">
-                <button onclick="deleteKnowledgeBase()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-delete" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-delete" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/KnowledgeBase/search</h3>
-                <label for="kb-search-query">Query:</label>
-                <input type="text" id="kb-search-query" value="闸机故障">
-                <label for="kb-search-topk">TopK:</label>
-                <input type="number" id="kb-search-topk" value="5">
-                <button onclick="searchKnowledgeBase()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-search" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-search" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/KnowledgeBase/search-by-tags</h3>
-                <label for="kb-search-tags">Tags (逗号分隔):</label>
-                <input type="text" id="kb-search-tags" value="tag1,tag2">
-                <label for="kb-search-tags-topk">TopK:</label>
-                <input type="number" id="kb-search-tags-topk" value="5">
-                <button onclick="searchKnowledgeBaseByTags()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-search-tags" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-search-tags" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/KnowledgeBase/stats</h3>
-                <button onclick="fetchKnowledgeBaseApi('stats', 'GET')">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-stats" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-stats" class="response-box"></div>
-            </div>
-
-            <div class="endpoint">
-                <h3><span class="method-get">GET</span> /api/KnowledgeBase/list</h3>
-                <label for="kb-list-page">Page:</label>
-                <input type="number" id="kb-list-page" value="1">
-                <label for="kb-list-pagesize">Page Size:</label>
-                <input type="number" id="kb-list-pagesize" value="10">
-                <button onclick="getKnowledgeBaseList()">测试</button>
-                <h4>请求:</h4>
-                <div id="request-kb-list" class="request-box"></div>
-                <h4>响应:</h4>
-                <div id="response-kb-list" class="response-box"></div>
-            </div>
-
-            <!-- 文件上传接口需要后端支持，这里仅作占位符 -->
-            <div class="endpoint">
-                <h3><span class="method-post">POST</span> /api/KnowledgeBase/import (文件上传)</h3>
-                <p>此接口需要文件上传，请使用 Postman 或其他工具测试。</p>
+            <!-- KnowledgeBaseController -->
+            <div class="controller-section">
+                <h2>KnowledgeBaseController</h2>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/KnowledgeBase</h3>
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase', 'GET', null, 'request-kb-getall', 'response-kb-getall')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-getall" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-getall" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/KnowledgeBase/{id}</h3>
+                    <label for="kb-get-id">ID:</label>
+                    <input type="text" id="kb-get-id" value="">
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase/' + document.getElementById('kb-get-id').value, 'GET', null, 'request-kb-getbyid', 'response-kb-getbyid')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-getbyid" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-getbyid" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/KnowledgeBase</h3>
+                    <label for="kb-create-title">Title:</label>
+                    <input type="text" id="kb-create-title" value="">
+                    <label for="kb-create-content">Content:</label>
+                    <textarea id="kb-create-content"></textarea>
+                    <label for="kb-create-summary">Summary (可选):</label>
+                    <input type="text" id="kb-create-summary" value="">
+                    <label for="kb-create-category">Category (可选):</label>
+                    <input type="text" id="kb-create-category" value="">
+                    <label for="kb-create-tags">Tags (逗号分隔，可选):</label>
+                    <input type="text" id="kb-create-tags" value="">
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase', 'POST', { Title: document.getElementById('kb-create-title').value, Content: document.getElementById('kb-create-content').value, Summary: document.getElementById('kb-create-summary').value, Category: document.getElementById('kb-create-category').value, Tags: document.getElementById('kb-create-tags').value.split(',').map(t=>t.trim()).filter(t=>t) }, 'request-kb-create', 'response-kb-create')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-create" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-create" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-put">PUT</span> /api/KnowledgeBase/{id}</h3>
+                    <label for="kb-update-id">ID:</label>
+                    <input type="text" id="kb-update-id" value="">
+                    <label for="kb-update-title">Title (可选):</label>
+                    <input type="text" id="kb-update-title" value="">
+                    <label for="kb-update-content">Content (可选):</label>
+                    <textarea id="kb-update-content"></textarea>
+                    <label for="kb-update-summary">Summary (可选):</label>
+                    <input type="text" id="kb-update-summary" value="">
+                    <label for="kb-update-category">Category (可选):</label>
+                    <input type="text" id="kb-update-category" value="">
+                    <label for="kb-update-tags">Tags (逗号分隔，可选):</label>
+                    <input type="text" id="kb-update-tags" value="">
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase/' + document.getElementById('kb-update-id').value, 'PUT', { Title: document.getElementById('kb-update-title').value, Content: document.getElementById('kb-update-content').value, Summary: document.getElementById('kb-update-summary').value, Category: document.getElementById('kb-update-category').value, Tags: document.getElementById('kb-update-tags').value.split(',').map(t=>t.trim()).filter(t=>t) }, 'request-kb-update', 'response-kb-update')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-update" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-update" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-delete">DELETE</span> /api/KnowledgeBase/{id}</h3>
+                    <label for="kb-delete-id">ID:</label>
+                    <input type="text" id="kb-delete-id" value="">
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase/' + document.getElementById('kb-delete-id').value, 'DELETE', null, 'request-kb-delete', 'response-kb-delete')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-delete" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-delete" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/KnowledgeBase/search</h3>
+                    <label for="kb-search-query">Query:</label>
+                    <input type="text" id="kb-search-query" value="">
+                    <label for="kb-search-topk">TopK:</label>
+                    <input type="number" id="kb-search-topk" value="5">
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase/search', 'POST', { Query: document.getElementById('kb-search-query').value, TopK: parseInt(document.getElementById('kb-search-topk').value) }, 'request-kb-search', 'response-kb-search')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-search" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-search" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/KnowledgeBase/search-by-tags</h3>
+                    <label for="kb-search-tags">Tags (逗号分隔):</label>
+                    <input type="text" id="kb-search-tags" value="">
+                    <label for="kb-search-tags-topk">TopK:</label>
+                    <input type="number" id="kb-search-tags-topk" value="5">
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase/search-by-tags', 'POST', { Tags: document.getElementById('kb-search-tags').value.split(',').map(t=>t.trim()).filter(t=>t), TopK: parseInt(document.getElementById('kb-search-tags-topk').value) }, 'request-kb-searchtags', 'response-kb-searchtags')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-searchtags" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-searchtags" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/KnowledgeBase/stats</h3>
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase/stats', 'GET', null, 'request-kb-stats', 'response-kb-stats')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-stats" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-stats" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-get">GET</span> /api/KnowledgeBase/list</h3>
+                    <label for="kb-list-page">Page:</label>
+                    <input type="number" id="kb-list-page" value="1">
+                    <label for="kb-list-pagesize">Page Size:</label>
+                    <input type="number" id="kb-list-pagesize" value="10">
+                    <button onclick="callApi(BASE_URL + '/api/KnowledgeBase/list?page=' + document.getElementById('kb-list-page').value + '&pageSize=' + document.getElementById('kb-list-pagesize').value, 'GET', null, 'request-kb-list', 'response-kb-list')">测试</button>
+                    <h4>请求:</h4>
+                    <div id="request-kb-list" class="request-box"></div>
+                    <h4>响应:</h4>
+                    <div id="response-kb-list" class="response-box"></div>
+                </div>
+                <div class="endpoint">
+                    <h3><span class="method-post">POST</span> /api/KnowledgeBase/import (文件上传)</h3>
+                    <p>此接口需要文件上传，请使用 Postman 或其他工具测试。</p>
+                </div>
             </div>
         </div>
     </div>
-
     <script>
-        const BASE_URL = 'http://localhost:5020'; // 请根据实际的后端地址修改
-
+        // 确保 BASE_URL 和 callApi 函数存在
+        const BASE_URL = 'http://localhost:5020'; // 请根据实际后端地址修改
         async function callApi(url, method, body = null, requestId = null, responseId = null) {
             const requestBox = requestId ? document.getElementById(requestId) : null;
             const responseBox = responseId ? document.getElementById(responseId) : null;
-
             if (requestBox) {
                 requestBox.textContent = body ? JSON.stringify(body, null, 2) : 'N/A';
             }
-
             try {
-                const options = {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                };
-                if (body) {
-                    options.body = JSON.stringify(body);
-                }
-
+                const options = { method: method, headers: { 'Content-Type': 'application/json' } };
+                if (body) options.body = JSON.stringify(body);
                 const response = await fetch(url, options);
                 const data = await response.json();
-
                 if (responseBox) {
                     responseBox.textContent = JSON.stringify(data, null, 2);
                     responseBox.style.color = response.ok ? 'green' : 'red';
                 }
             } catch (error) {
-                console.error('API Error:', error);
                 if (responseBox) {
                     responseBox.textContent = 'Error: ' + error.message;
                     responseBox.style.color = 'red';
                 }
             }
-        }
-
-        // AdminController Functions
-        async function fetchAdminApi(endpoint, method) {
-            const url = `${BASE_URL}/api/Admin/${endpoint}`;
-            const requestId = `request-admin-${endpoint.replace(/-/g, '')}`;
-            const responseId = `response-admin-${endpoint.replace(/-/g, '')}`;
-            await callApi(url, method, null, requestId, responseId);
-        }
-
-        async function testAdminVectorSearch() {
-            const query = document.getElementById('admin-search-query').value;
-            const topK = parseInt(document.getElementById('admin-search-topk').value);
-            const url = `${BASE_URL}/api/Admin/test-vector-search`;
-            const body = { Query: query, TopK: topK };
-            await callApi(url, 'POST', body, 'request-admin-test-vector-search', 'response-admin-test-vector-search');
-        }
-
-        async function clearAdminData() {
-            const collectionName = document.getElementById('admin-clear-collection-name').value;
-            const url = `${BASE_URL}/api/Admin/clear-all-data/${collectionName}`;
-            await callApi(url, 'DELETE', null, 'request-admin-clear-all-data', 'response-admin-clear-all-data');
-        }
-
-        async function getAdminUser() {
-            const userId = document.getElementById('admin-get-user-id').value;
-            const url = `${BASE_URL}/api/Admin/user/${userId}`;
-            await callApi(url, 'GET', null, 'request-admin-get-user', 'response-admin-get-user');
-        }
-
-        async function updateAdminUser() {
-            const userId = document.getElementById('admin-update-user-id').value;
-            const newName = document.getElementById('admin-update-new-name').value;
-            const url = `${BASE_URL}/api/Admin/user/${userId}`;
-            await callApi(url, 'PUT', `"${newName}"`, 'request-admin-update-user', 'response-admin-update-user');
-        }
-
-        async function deleteAdminUser() {
-            const userId = document.getElementById('admin-delete-user-id').value;
-            const url = `${BASE_URL}/api/Admin/user/${userId}`;
-            await callApi(url, 'DELETE', null, 'request-admin-delete-user', 'response-admin-delete-user');
-        }
-
-
-        // GatewayAIController Functions
-        async function chatGatewayAI() {
-            const question = document.getElementById('ai-chat-question').value;
-            const url = `${BASE_URL}/api/GatewayAI/chat`;
-            const body = { Question: question };
-            await callApi(url, 'POST', body, 'request-ai-chat', 'response-ai-chat');
-        }
-
-        async function getGatewayAISolutions() {
-            const problem = document.getElementById('ai-solutions-problem').value;
-            const category = document.getElementById('ai-solutions-category').value;
-            const url = `${BASE_URL}/api/GatewayAI/solutions`;
-            const body = { Problem: problem, Category: category || undefined };
-            await callApi(url, 'POST', body, 'request-ai-solutions', 'response-ai-solutions');
-        }
-
-        // KnowledgeBaseController Functions
-        async function fetchKnowledgeBaseApi(endpoint, method) {
-            const url = `${BASE_URL}/api/KnowledgeBase/${endpoint}`;
-            const requestId = `request-kb-${endpoint.replace(/-/g, '') || 'getall'}`;
-            const responseId = `response-kb-${endpoint.replace(/-/g, '') || 'getall'}`;
-            await callApi(url, method, null, requestId, responseId);
-        }
-
-        async function getKnowledgeBaseById() {
-            const id = document.getElementById('kb-get-id').value;
-            const url = `${BASE_URL}/api/KnowledgeBase/${id}`;
-            await callApi(url, 'GET', null, 'request-kb-get-by-id', 'response-kb-get-by-id');
-        }
-
-        async function createKnowledgeBase() {
-            const title = document.getElementById('kb-create-title').value;
-            const content = document.getElementById('kb-create-content').value;
-            const summary = document.getElementById('kb-create-summary').value;
-            const category = document.getElementById('kb-create-category').value;
-            const tags = document.getElementById('kb-create-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-
-            const url = `${BASE_URL}/api/KnowledgeBase`;
-            const body = {
-                Title: title,
-                Content: content,
-                Summary: summary || undefined,
-                Category: category || undefined,
-                Tags: tags.length > 0 ? tags : undefined
-            };
-            await callApi(url, 'POST', body, 'request-kb-create', 'response-kb-create');
-        }
-
-        async function updateKnowledgeBase() {
-            const id = document.getElementById('kb-update-id').value;
-            const title = document.getElementById('kb-update-title').value;
-            const content = document.getElementById('kb-update-content').value;
-            const summary = document.getElementById('kb-update-summary').value;
-            const category = document.getElementById('kb-update-category').value;
-            const tags = document.getElementById('kb-update-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-
-            const url = `${BASE_URL}/api/KnowledgeBase/${id}`;
-            const body = {
-                Title: title || undefined,
-                Content: content || undefined,
-                Summary: summary || undefined,
-                Category: category || undefined,
-                Tags: tags.length > 0 ? tags : undefined
-            };
-            await callApi(url, 'PUT', body, 'request-kb-update', 'response-kb-update');
-        }
-
-        async function deleteKnowledgeBase() {
-            const id = document.getElementById('kb-delete-id').value;
-            const url = `${BASE_URL}/api/KnowledgeBase/${id}`;
-            await callApi(url, 'DELETE', null, 'request-kb-delete', 'response-kb-delete');
-        }
-
-        async function searchKnowledgeBase() {
-            const query = document.getElementById('kb-search-query').value;
-            const topK = parseInt(document.getElementById('kb-search-topk').value);
-            const url = `${BASE_URL}/api/KnowledgeBase/search`;
-            const body = { Query: query, TopK: topK };
-            await callApi(url, 'POST', body, 'request-kb-search', 'response-kb-search');
-        }
-
-        async function searchKnowledgeBaseByTags() {
-            const tags = document.getElementById('kb-search-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-            const topK = parseInt(document.getElementById('kb-search-tags-topk').value);
-            const url = `${BASE_URL}/api/KnowledgeBase/search-by-tags`;
-            const body = { Tags: tags, TopK: topK };
-            await callApi(url, 'POST', body, 'request-kb-search-tags', 'response-kb-search-tags');
-        }
-
-        async function getKnowledgeBaseList() {
-            const page = parseInt(document.getElementById('kb-list-page').value);
-            const pageSize = parseInt(document.getElementById('kb-list-pagesize').value);
-            const url = `${BASE_URL}/api/KnowledgeBase/list?page=${page}&pageSize=${pageSize}`;
-            await callApi(url, 'GET', null, 'request-kb-list', 'response-kb-list');
         }
     </script>
 </body>
