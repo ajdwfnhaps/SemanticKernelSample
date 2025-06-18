@@ -5,6 +5,7 @@ using Baodian.AI.SemanticKernel.Abstractions;
 using Baodian.AI.SemanticKernel.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using System;
@@ -46,15 +47,16 @@ public class AliyunBailianProvider : IKernelProvider
             httpClient: httpClient
         );
 
-        // 添加嵌入生成服务
-        var pineconeOptions = _serviceProvider.GetRequiredService<IConfiguration>().GetSection("Pinecone").Get<PineconeOptions>() ?? new PineconeOptions();
-        // 以 OpenAI 为例，实际参数请用你的配置
-        builder.AddOpenAIEmbeddingGenerator(
-            modelId: pineconeOptions.ModelName,
-            apiKey: pineconeOptions.ApiKey
+        // 关键：注册阿里云百炼的 Embedding 服务（兼容 OpenAI Embedding API）
+        builder.AddOpenAITextEmbeddingGeneration(
+            modelId: config.ModelName,
+            apiKey: config.ApiKey,
+            httpClient: httpClient
         );
 
         var kernel = builder.Build();
+
+       
         RegisterPlugins(kernel);
         return kernel;
     }

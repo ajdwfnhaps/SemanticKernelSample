@@ -1,13 +1,13 @@
-
-
 using Baodian.AI.SemanticKernel.Abstractions;
 using Baodian.AI.SemanticKernel.Configuration;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using System;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 
@@ -35,6 +35,12 @@ public class DeepSeekProvider : IKernelProvider
         var builder = Kernel.CreateBuilder();
         var httpClient = _serviceProvider.GetRequiredService<HttpClient>();
 
+        // 设置 httpClient 的 BaseAddress 为 DeepSeek endpoint
+        if (httpClient.BaseAddress == null || httpClient.BaseAddress.ToString() != config.Endpoint)
+        {
+            httpClient.BaseAddress = new Uri(config.Endpoint);
+        }
+
         // DeepSeek 兼容 OpenAI API
         builder.AddOpenAIChatCompletion(
             modelId: config.ModelName,
@@ -43,13 +49,12 @@ public class DeepSeekProvider : IKernelProvider
             httpClient: httpClient
         );
 
-        //// 添加嵌入生成服务
-        //var pineconeOptions = _serviceProvider.GetRequiredService<IConfiguration>().GetSection("Pinecone").Get<PineconeOptions>() ?? new PineconeOptions();
-        //// 以 OpenAI 为例，实际参数请用你的配置
-        //builder.AddOpenAIEmbeddingGenerator(
-        //    modelId: pineconeOptions.ModelName,
-        //    apiKey: pineconeOptions.ApiKey
-        //);
+        // 关键：注册 DeepSeek 的 Embedding 服务（使用兼容的重载）
+        builder.AddOpenAITextEmbeddingGeneration(
+            modelId: config.ModelName,
+            apiKey: config.ApiKey,
+            httpClient: httpClient
+        );
 
         var kernel = builder.Build();
 

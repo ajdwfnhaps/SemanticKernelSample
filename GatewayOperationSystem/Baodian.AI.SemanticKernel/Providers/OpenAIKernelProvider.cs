@@ -47,6 +47,13 @@ public class OpenAIKernelProvider : IKernelProvider
             httpClient: httpClient
         );
 
+        //// 关键：注册 OpenAI Embedding 服务
+        //builder.AddOpenAITextEmbeddingGeneration(
+        //    modelId: config.ModelName,
+        //    apiKey: config.ApiKey,
+        //    httpClient: httpClient
+        //);
+
         // 添加嵌入生成服务
         var pineconeOptions = _serviceProvider.GetRequiredService<IConfiguration>().GetSection("Pinecone").Get<PineconeOptions>() ?? new PineconeOptions();
         // 以 OpenAI 为例，实际参数请用你的配置

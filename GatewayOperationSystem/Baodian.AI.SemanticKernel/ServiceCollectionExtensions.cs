@@ -1,35 +1,32 @@
-#pragma warning disable SKEXP0010
-
+using Autofac.Core;
+using Baodian.AI.SemanticKernel.Abstractions;
+using Baodian.AI.SemanticKernel.Configuration;
+using Baodian.AI.SemanticKernel.Constants;
+using Baodian.AI.SemanticKernel.Factory;
+using Baodian.AI.SemanticKernel.Filters;
+using Baodian.AI.SemanticKernel.Providers;
+using Baodian.AI.SemanticKernel.Services;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Baodian.AI.SemanticKernel.Local;
-using Baodian.AI.SemanticKernel.Milvus.Services;
-using Baodian.AI.SemanticKernel.Milvus.Configuration;
+using Microsoft.SemanticKernel.Embeddings;
 using System;
+using System.Configuration;
 using System.Net.Http;
-using System.Linq;
+using System.Reflection;
 
 namespace Baodian.AI.SemanticKernel;
+
 
 public class SemanticKernelConfig
 {
     public string DefaultModel { get; set; } = string.Empty;
     public string Provider { get; set; } = "Mock"; // Mock, OpenAI-Compatible, OpenAI, AzureOpenAI
     public List<ModelConfig> Models { get; set; } = new();
-}
-
-public class ModelConfig
-{
-    public string Provider { get; set; } = "Mock";
-    public string ModelName { get; set; } = string.Empty;
-    public string ApiKey { get; set; } = ""; // 本地模拟服务不需要密钥
-    public string Endpoint { get; set; } = ""; // 本地模拟服务不需要端点
-    public int MaxTokens { get; set; } = 2000;
-    public double Temperature { get; set; } = 0.7;    public bool EnableStreaming { get; set; } = false;
 }
 
 /// <summary>
@@ -47,178 +44,374 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var skConfig = configuration.GetSection("SemanticKernel").Get<SemanticKernelConfig>();
+        // 手动绑定配置并注册为单例
+        var options = new SemanticKernelOptions();
+        configuration.GetSection("SemanticKernel").Bind(options);
 
-        if (skConfig == null || !skConfig.Models.Any())
+        services.AddSingleton(options);
+
+
+        // 注册服务
+        services.AddSingleton<IModelConfigFactory, ModelConfigFactory>(p =>
         {
-            throw new InvalidOperationException("Semantic Kernel configuration is missing or invalid.");
-        }        services.AddScoped<Kernel>(sp =>
-        {
-            var kernelBuilder = Kernel.CreateBuilder();
-
-            foreach (var modelConfig in skConfig.Models)
-            {
-                ConfigureProvider(kernelBuilder, modelConfig);
-            }
-
-            var kernel = kernelBuilder.Build();
-            return kernel;
+            return new ModelConfigFactory(options);
         });
+        services.AddSingleton<IKernelFactory, KernelFactory>();
+        services.AddSingleton<SemanticKernelHookFilter>();
+        services.AddScoped<ChatService>();
 
-        // 注册嵌入生成服务 - 使用独立的注册方式
-        RegisterEmbeddingServices(services, skConfig);
+        //注册Providers
+        services.AddKernelProviders(typeof(AliyunBailianProvider).Assembly, options);
+
+        //// 添加嵌入生成服务 (使用新的API)
+        //var httpClient = services.BuildServiceProvider().GetRequiredService<HttpClient>();
+
+
 
         return services;
-    }    /// <summary>
-    /// 注册嵌入生成服务
+    }
+
+
+
+
+
+
+    /// <summary>
+    /// 自动注册程序集中所有实现了IKernelProvider接口的类
     /// </summary>
-    private static void RegisterEmbeddingServices(IServiceCollection services, SemanticKernelConfig skConfig)
+    /// <param name="services">服务集合</param>
+    /// <param name="assembly">包含Provider的程序集，默认为当前调用程序集</param>
+    /// <returns>服务集合</returns>
+    public static IServiceCollection AddKernelProviders(this IServiceCollection services, Assembly? assembly = null, SemanticKernelOptions options = null)
     {
-        var embeddingModel = skConfig.Models.FirstOrDefault();
-        if (embeddingModel == null) 
+        assembly ??= Assembly.GetCallingAssembly();
+
+        var providerTypes = assembly.GetTypes()
+            .Where(t => !t.IsAbstract && !t.IsInterface && typeof(IKernelProvider).IsAssignableFrom(t));
+
+        foreach (var providerType in providerTypes)
         {
-            // 如果没有配置模型，使用默认的 Mock 服务
-            services.AddScoped<IEmbeddingGenerator<string, Embedding<float>>, MockEmbeddingGenerationService>();
-            return;
+            services.AddSingleton(providerType);
+            //services.AddSingleton(typeof(IKernelProvider), providerType);
         }
 
-        switch (embeddingModel.Provider.ToLowerInvariant())
+        //var pineconeOptions = services.BuildServiceProvider().GetRequiredService<IConfiguration>().GetSection("Pinecone").Get<PineconeOptions>() ?? new PineconeOptions();
+        var models = options?.Models ?? null;
+        if (models != null)
         {
-            case "mock":
-                services.AddScoped<IEmbeddingGenerator<string, Embedding<float>>, MockEmbeddingGenerationService>();
-                break;
-            case "openai-compatible":
-            case "openai":
-            case "azureopenai":
-                // 暂时都使用 Mock 服务，直到我们有正确的 OpenAI 包配置
-                services.AddScoped<IEmbeddingGenerator<string, Embedding<float>>, MockEmbeddingGenerationService>();
-                break;
-            default:
-                // 默认使用 Mock 服务
-                services.AddScoped<IEmbeddingGenerator<string, Embedding<float>>, MockEmbeddingGenerationService>();
-                break;
-        }
-    }
+            // 注册嵌入生成服务 - 提前注册，而不是在 AddScoped 的委托中调用
+            foreach (var model in models)
+            {
+                // 注册嵌入生成服务 - 使用独立的注册方式
+                services.RegisterEmbeddingServices(model.ModelName);
+            }
 
-    private static void ConfigureProvider(IKernelBuilder kernelBuilder, ModelConfig modelConfig)
-    {
-        switch (modelConfig.Provider.ToLowerInvariant())
-        {
-            case "mock":
-                ConfigureMock(kernelBuilder, modelConfig);
-                break;
-            case "openai-compatible":
-                ConfigureOpenAICompatible(kernelBuilder, modelConfig);
-                break;
-            case "openai":
-                ConfigureOpenAI(kernelBuilder, modelConfig);
-                break;
-            case "azureopenai":
-                ConfigureAzureOpenAI(kernelBuilder, modelConfig);
-                break;
-            default:
-                throw new NotSupportedException($"Provider '{modelConfig.Provider}' is not supported.");
-        }
-    }
-    private static void ConfigureMock(IKernelBuilder kernelBuilder, ModelConfig modelConfig)
-    {
-        // 注册本地模拟服务，完全不依赖外部 API
-        kernelBuilder.Services.AddSingleton<MockChatCompletionService>();
-        kernelBuilder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>, MockEmbeddingGenerationService>();
-
-        // 将 Mock 服务添加到 Kernel 构建器
-        kernelBuilder.Services.AddKeyedSingleton<IChatCompletionService, MockChatCompletionService>(modelConfig.ModelName);
-    }
-
-    private static void ConfigureOpenAICompatible(IKernelBuilder kernelBuilder, ModelConfig modelConfig)
-    {
-        // 用于兼容 OpenAI API 的免费或本地服务
-        var httpClient = new HttpClient();
-        if (!string.IsNullOrEmpty(modelConfig.Endpoint))
-        {
-            httpClient.BaseAddress = new Uri(modelConfig.Endpoint);
+            foreach (var model in models)
+            {
+                services.AddScoped<Kernel>(p =>
+                {
+                    var kernelFactory = p.GetRequiredService<IKernelFactory>();
+                    return kernelFactory.CreateKernel(model.ModelName);
+                });
+            }
         }
 
-        // 使用假的 API Key 对于不需要认证的服务
-        var apiKey = string.IsNullOrEmpty(modelConfig.ApiKey) ? "dummy-key" : modelConfig.ApiKey;
 
-        kernelBuilder.AddOpenAIChatCompletion(
-            modelId: modelConfig.ModelName,
-            apiKey: apiKey,
-            httpClient: httpClient);
-
-        kernelBuilder.AddOpenAIEmbeddingGenerator(
-            modelId: modelConfig.ModelName,
-            apiKey: apiKey,
-            httpClient: httpClient);
-    }
-
-    private static void ConfigureOpenAI(IKernelBuilder kernelBuilder, ModelConfig modelConfig)
-    {
-        var httpClient = new HttpClient();
-        if (!string.IsNullOrEmpty(modelConfig.Endpoint))
-        {
-            httpClient.BaseAddress = new Uri(modelConfig.Endpoint);
-        }
-
-        kernelBuilder.AddOpenAIChatCompletion(
-            modelId: modelConfig.ModelName,
-            apiKey: modelConfig.ApiKey,
-            httpClient: httpClient);
-
-        kernelBuilder.AddOpenAIEmbeddingGenerator(
-            modelId: modelConfig.ModelName,
-            apiKey: modelConfig.ApiKey,
-            httpClient: httpClient);
-    }
-
-    private static void ConfigureAzureOpenAI(IKernelBuilder kernelBuilder, ModelConfig modelConfig)
-    {
-        if (string.IsNullOrEmpty(modelConfig.Endpoint) || string.IsNullOrEmpty(modelConfig.ApiKey))
-        {
-            throw new InvalidOperationException("Azure OpenAI requires both Endpoint and ApiKey to be configured.");
-        }
-
-        kernelBuilder.AddAzureOpenAIChatCompletion(
-            deploymentName: modelConfig.ModelName,
-            endpoint: modelConfig.Endpoint,
-            apiKey: modelConfig.ApiKey); kernelBuilder.AddAzureOpenAIEmbeddingGenerator(
-            deploymentName: modelConfig.ModelName,
-            endpoint: modelConfig.Endpoint,
-            apiKey: modelConfig.ApiKey);
+        return services;
     }
 
     /// <summary>
-    /// 添加 Milvus 向量数据库服务
+    /// 注册插件
     /// </summary>
+    /// <typeparam name="TPlugin">插件类型</typeparam>
     /// <param name="services">服务集合</param>
+    /// <returns>服务集合</returns>
+    public static IServiceCollection AddPlugin<TPlugin>(this IServiceCollection services)
+        where TPlugin : class, IPlugin
+    {
+        services.AddSingleton<IPlugin, TPlugin>();
+        return services;
+    }
+
+    /// <summary>
+    /// 注册AI模型提供者
+    /// </summary>
+    /// <typeparam name="TProvider">提供者类型</typeparam>
+    /// <param name="services">服务集合</param>
+    /// <returns>服务集合</returns>
+    public static IServiceCollection AddModelProvider<TProvider>(this IServiceCollection services)
+        where TProvider : class, IKernelProvider
+    {
+        services.AddSingleton<IKernelProvider, TProvider>();
+        return services;
+    }
+
+    /// <summary>
+    /// 配置并使用宝典AI服务
+    /// </summary>
+    /// <param name="app">应用程序构建器</param>
+    /// <param name="modelInfos">模型信息列表</param>
+    /// <returns>应用程序构建器</returns>
+    public static IApplicationBuilder UseBaodianAISemanticKernel(this IApplicationBuilder app, params ModelInfo[] modelInfos)
+    {
+        var kernelFactory = app.ApplicationServices.GetRequiredService<IKernelFactory>();
+
+        // 注册每个模型
+        foreach (var modelInfo in modelInfos.Where(m => m.KernelProvider != null && !string.IsNullOrEmpty(m.ModelName)))
+        {
+            kernelFactory.RegisterProvider(modelInfo.ModelName, modelInfo.KernelProvider);
+        }
+
+        return app;
+    }
+
+    #region 添加聊天完成模型配置
+    /// <summary>
+    /// 添加OpenAI聊天完成模型配置
+    /// </summary>
+    /// <param name="options">Semantic Kernel配置选项</param>
     /// <param name="configure">配置委托</param>
-    /// <returns>服务集合</returns>
-    public static IServiceCollection AddMilvus(this IServiceCollection services, Action<MilvusOptions> configure)
+    /// <returns>Semantic Kernel配置选项</returns>
+    public static SemanticKernelOptions UseOpenAIChatCompletion(
+        this SemanticKernelOptions options,
+        Action<OpenAIConfig> configure)
     {
-        var options = new MilvusOptions();
-        configure(options);
-        return services.AddMilvus(options);
+        var config = new OpenAIConfig();
+        configure(config);
+        options.Models.Add(config);
+        return options;
     }
 
     /// <summary>
-    /// 添加 Milvus 向量数据库服务
+    /// 添加Azure OpenAI聊天完成模型配置
+    /// </summary>
+    /// <param name="options">Semantic Kernel配置选项</param>
+    /// <param name="configure">配置委托</param>
+    /// <returns>Semantic Kernel配置选项</returns>
+    public static SemanticKernelOptions UseAzureOpenAIChatCompletion(
+        this SemanticKernelOptions options,
+        Action<AzureOpenAIConfig> configure)
+    {
+        var config = new AzureOpenAIConfig();
+        configure(config);
+        options.Models.Add(config);
+        return options;
+    }
+
+    /// <summary>
+    /// 添加DeepSeek聊天完成模型配置
+    /// </summary>
+    /// <param name="options">Semantic Kernel配置选项</param>
+    /// <param name="configure">配置委托</param>
+    /// <returns>Semantic Kernel配置选项</returns>
+    public static SemanticKernelOptions UseDeepSeekChatCompletion(
+        this SemanticKernelOptions options,
+        Action<OpenAIConfig> configure) // DeepSeek Provider 也使用 OpenAIConfig
+    {
+        var config = new OpenAIConfig();
+        configure(config);
+        options.Models.Add(config);
+        return options;
+    }
+
+    /// <summary>
+    /// 添加阿里云百炼聊天完成模型配置
+    /// </summary>
+    /// <param name="options">Semantic Kernel配置选项</param>
+    /// <param name="configure">配置委托</param>
+    /// <returns>Semantic Kernel配置选项</returns>
+    public static SemanticKernelOptions UseAliyunBailianChatCompletion(
+        this SemanticKernelOptions options,
+        Action<OpenAIConfig> configure) // 阿里云百炼 Provider 也使用 OpenAIConfig
+    {
+        var config = new OpenAIConfig();
+        configure(config);
+        options.Models.Add(config);
+        return options;
+    }
+    #endregion
+
+
+    #region Use模型方法
+    /// <summary>
+    /// 使用宝典AI的DeepSeek模型
+    /// </summary>
+    /// <param name="app"></param>
+    /// <param name="modelName"></param>
+    /// <returns></returns>
+    public static IApplicationBuilder UseBaodianAIDeepSeek(this IApplicationBuilder app, string modelName = "")
+    {
+        var kernelFactory = app.ApplicationServices.GetRequiredService<IKernelFactory>();
+
+        if (string.IsNullOrEmpty(modelName))
+        {
+            modelName = ModelConstants.DeepSeekChat;
+        }
+
+        kernelFactory.RegisterProvider(modelName, app.ApplicationServices.GetRequiredService<DeepSeekProvider>());
+
+        return app;
+    }
+
+    /// <summary>
+    /// 使用宝典AI的OpenAI模型
+    /// </summary>
+    /// <param name="app">应用程序构建器</param>
+    /// <param name="modelName">模型名称，如果为空则使用默认值</param>
+    /// <returns>应用程序构建器</returns>
+    public static IApplicationBuilder UseBaodianAIOpenAI(this IApplicationBuilder app, string modelName = "")
+    {
+        var kernelFactory = app.ApplicationServices.GetRequiredService<IKernelFactory>();
+
+        if (string.IsNullOrEmpty(modelName))
+        {
+            // 假设这里的默认模型名称是 "gpt-3.5-turbo" 或您在 ModelConstants 中定义的常量
+            modelName = ModelConstants.Gpt35Turbo;
+        }
+
+        kernelFactory.RegisterProvider(modelName, app.ApplicationServices.GetRequiredService<OpenAIKernelProvider>());
+
+        return app;
+    }
+
+    /// <summary>
+    /// 使用宝典AI的Azure OpenAI模型
+    /// </summary>
+    /// <param name="app">应用程序构建器</param>
+    /// <param name="modelName">模型名称 (通常是部署名称)，如果为空则使用默认值</param>
+    /// <returns>应用程序构建器</returns>
+    public static IApplicationBuilder UseBaodianAIAzureOpenAI(this IApplicationBuilder app, string modelName = "")
+    {
+        var kernelFactory = app.ApplicationServices.GetRequiredService<IKernelFactory>();
+
+        if (string.IsNullOrEmpty(modelName))
+        {
+            // 假设这里的默认模型名称是 "azure-gpt-35-turbo-deployment" 或您在 ModelConstants 中定义的常量
+            modelName = ModelConstants.AzureGpt35TurboDeployment;
+        }
+
+        kernelFactory.RegisterProvider(modelName, app.ApplicationServices.GetRequiredService<AzureOpenAIKernelProvider>());
+
+        return app;
+    }
+
+    /// <summary>
+    /// 使用宝典AI的阿里云百炼模型
+    /// </summary>
+    /// <param name="app">应用程序构建器</param>
+    /// <param name="modelName">模型名称，如果为空则使用默认值</param>
+    /// <returns>应用程序构建器</returns>
+    public static IApplicationBuilder UseBaodianAIAliyunBailian(this IApplicationBuilder app, string modelName = "")
+    {
+        var kernelFactory = app.ApplicationServices.GetRequiredService<IKernelFactory>();
+
+        if (string.IsNullOrEmpty(modelName))
+        {
+            // 假设这里的默认模型名称是 "qwen-max" 或您在 ModelConstants 中定义的常量
+            modelName = ModelConstants.AliQwenMax;
+        }
+
+        kernelFactory.RegisterProvider(modelName, app.ApplicationServices.GetRequiredService<AliyunBailianProvider>());
+
+        return app;
+    }    /// <summary>    /// <summary>
+         /// 注册嵌入生成服务（Embedding Services）
+         /// </summary>
+         /// <param name="services">服务集合</param>
+         /// <param name="options">SemanticKernel 配置</param>
+         /// <returns>服务集合</returns>
+    public static IServiceCollection RegisterEmbeddingServices(this IServiceCollection services, string modelName)
+    {
+        // 移除本地IEmbeddingService接口和EmbeddingService实现相关注册
+
+        // 注册 Microsoft.Extensions.AI.IEmbeddingGenerator 接口
+        // 使用默认模型或第一个可用模型的嵌入生成器
+        services.AddSingleton<Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>(serviceProvider =>
+        {
+            var kernelFactory = serviceProvider.GetRequiredService<IKernelFactory>();
+            var kernel = kernelFactory.CreateKernel(modelName);
+
+            // 优先获取新接口，否则用适配器
+            var embeddingGenerator = kernel.Services.GetService<Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>();
+            if (embeddingGenerator != null)
+            {
+                return embeddingGenerator;
+            }
+
+            // 适配阿里云 DashScope 的 ITextEmbeddingGenerationService
+            return new EmbeddingGeneratorAdapter(kernel);
+        });
+
+        return services;
+    }/// <summary>
+     /// 嵌入生成器适配器，用于将旧版本的 ITextEmbeddingGenerationService 适配为新版本的 IEmbeddingGenerator
+     /// </summary>
+    internal class EmbeddingGeneratorAdapter : Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>
+    {
+        private readonly Kernel _kernel;
+
+        public EmbeddingGeneratorAdapter(Kernel kernel)
+        {
+            _kernel = kernel;
+        }
+
+        public async Task<Microsoft.Extensions.AI.GeneratedEmbeddings<Microsoft.Extensions.AI.Embedding<float>>> GenerateAsync(
+            IEnumerable<string> values,
+            Microsoft.Extensions.AI.EmbeddingGenerationOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+#pragma warning disable CS0618 // Type or member is obsolete
+                var embeddingService = _kernel.Services.GetService<ITextEmbeddingGenerationService>();
+                if (embeddingService != null)
+                {
+                    var valuesList = values.ToList();
+                    var embeddings = await embeddingService.GenerateEmbeddingsAsync(valuesList, cancellationToken: cancellationToken);
+                    var results = embeddings.Select(e =>
+                        new Microsoft.Extensions.AI.Embedding<float>(e.IsEmpty ? Array.Empty<float>() : e.ToArray())
+                    ).ToList();
+
+                    return new Microsoft.Extensions.AI.GeneratedEmbeddings<Microsoft.Extensions.AI.Embedding<float>>(results);
+                }
+#pragma warning restore CS0618 // Type or member is obsolete
+
+                throw new InvalidOperationException("No embedding service found in kernel");
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to generate embeddings: {ex.Message}", ex);
+            }
+        }
+
+        public void Dispose()
+        {
+            // Nothing to dispose
+        }
+
+        public Microsoft.Extensions.AI.EmbeddingGeneratorMetadata Metadata =>
+            new("SemanticKernel-Adapter", null, null); public TService? GetService<TService>(object? serviceKey = null) where TService : class
+        {
+            return _kernel.Services.GetService<TService>();
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null)
+        {
+            return _kernel.Services.GetService(serviceType);
+        }
+    }
+    #endregion
+
+    /// <summary>
+    /// 添加阿里云Text Embedding服务
     /// </summary>
     /// <param name="services">服务集合</param>
-    /// <param name="options">Milvus 配置选项</param>
-    /// <returns>服务集合</returns>
-    public static IServiceCollection AddMilvus(this IServiceCollection services, MilvusOptions options)
+    /// <param name="apiKey">阿里云API Key</param>
+    /// <param name="endpoint">阿里云text-embedding-v1接口地址</param>
+    /// <returns></returns>
+    public static IServiceCollection AddAliyunTextEmbeddingService(this IServiceCollection services, string apiKey, string endpoint, string model = "text-embedding-v4", int dimension = 768)
     {
-        // 注册 Milvus 服务
-        services.AddScoped<DataService>(provider => 
-            new DataService(options.Host, options.Port));
-        
-        services.AddScoped<CollectionService>(provider => 
-            new CollectionService(options.Host, options.Port));
-        
-        services.AddScoped<SearchService>(provider => 
-            new SearchService(options.Host, options.Port));
-
+        services.AddSingleton<IEmbeddingService>(sp => new AliyunTextEmbeddingService(apiKey, endpoint, model, dimension));
         return services;
     }
 }

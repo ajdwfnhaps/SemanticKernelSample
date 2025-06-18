@@ -1,11 +1,13 @@
-using System.Threading.Tasks;
+using Baodian.AI.SemanticKernel.Milvus.Configuration;
 using Baodian.AI.SemanticKernel.Milvus.Models;
+using Microsoft.Extensions.Options;
+using System.Threading.Tasks;
 
 namespace Baodian.AI.SemanticKernel.Milvus.Services
 {
     public class IndexService : MilvusClient
     {
-        public IndexService(string host = "localhost", int port = 9091) : base(host, port)
+        public IndexService(MilvusOptions options) : base(options)
         {
         }
 

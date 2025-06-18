@@ -24,4 +24,8 @@ public static class ModelConstants
     /// Azure OpenAI GPT-3.5 Turbo 模型
     /// </summary>
     public const string AzureGpt35TurboDeployment = "azure-gpt-35-turbo-deployment";
+
+
+    public const string TextEmbeddingV1 = "text-embedding-v1";
+    
 }

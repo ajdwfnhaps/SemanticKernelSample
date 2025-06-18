@@ -3,18 +3,24 @@ using System;
 namespace Baodian.AI.SemanticKernel.Milvus.Configuration
 {    public class MilvusOptions
     {
-        public string Host { get; set; } = "localhost";
-        public int Port { get; set; } = 9091;
+        public string Endpoint { get; set; } = "localhost";
+        public int Port { get; set; } = 443;
         public string Username { get; set; }
         public string Password { get; set; }
-        public string Database { get; set; } = "default";
-        public bool UseSSL { get; set; }
-        public bool EnableSsl { get; set; } // 兼容性别名
+        public bool EnableSsl { get; set; }
         public int Timeout { get; set; } = 30;
+
+        public string ApiKey { get; set; } = string.Empty; // API Key 用于身份验证
+        public string Token { get; set; } = string.Empty; // Token 用于身份验证
+        public string Database { get; set; } = "default"; // 默认数据库名称
+        public string DatabaseName { get; set; } = "default"; // 数据库名称（兼容配置）
         
-        // 用于 Zilliz Cloud 的认证
-        public string ApiKey { get; set; }
-        public string Token { get; set; }
+        // 集合相关配置
+        public string CollectionName { get; set; } = "default_collection";
+        public int Dimension { get; set; } = 768;
+        public int VectorDimension { get; set; } = 1536;
+        public string IndexType { get; set; } = "HNSW";
+        public string MetricType { get; set; } = "COSINE";
 
         // 重试配置
         public RetryOptions Retry { get; set; } = new RetryOptions();

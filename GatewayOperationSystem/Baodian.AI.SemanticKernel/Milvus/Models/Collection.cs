@@ -25,7 +25,9 @@ namespace Baodian.AI.SemanticKernel.Milvus.Models
         public string Description { get; set; }
         public List<FieldSchema> Fields { get; set; }
         public bool EnableDynamicField { get; set; }
-        
+
+        public int Dimension { get; set; }
+
         // 兼容性属性，映射到 CollectionName
         public string Name 
         { 

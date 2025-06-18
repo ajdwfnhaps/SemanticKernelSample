@@ -10,12 +10,33 @@ namespace Baodian.AI.SemanticKernel.Milvus.Extensions
         public static IServiceCollection AddMilvus(this IServiceCollection services, MilvusOptions options)
         {
             services.AddSingleton(options);
+
+
             services.AddSingleton<LoggingService>();
             services.AddSingleton<RetryService>();
-            services.AddSingleton<CollectionService>();
-            services.AddSingleton<SearchService>();
-            services.AddSingleton<DataService>();
-            services.AddSingleton<IndexService>();
+
+            services.AddSingleton(p =>
+            {
+                return new CollectionService(options);
+            });
+
+            services.AddSingleton(p =>
+            {
+                return new SearchService(options);
+            });
+
+
+            services.AddSingleton(p =>
+            {
+                return new DataService(options);
+            });
+
+
+            services.AddSingleton(p =>
+            {
+                return new IndexService(options);
+            });
+
 
             return services;
         }

@@ -14,30 +14,37 @@ namespace Baodian.AI.SemanticKernel.Milvus
         private readonly string _baseUrl;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly LoggingService _loggingService;
-        private readonly RetryService _retryService;        public MilvusClient(MilvusOptions options, LoggingService loggingService, RetryService retryService)
+        private readonly RetryService _retryService;        
+        
+        public MilvusClient(MilvusOptions options, LoggingService loggingService, RetryService retryService)
         {
-            // 支持 EnableSsl 和 UseSSL 两种配置
-            var useSSL = options.EnableSsl || options.UseSSL;
-            _baseUrl = $"http{(useSSL ? "s" : "")}://{options.Host}:{options.Port}/api/v1";
+            // 如果提供了 Endpoint，使用 Endpoint；否则使用 Host 和 Port 构建 URL
+            if (!string.IsNullOrEmpty(options.Endpoint))
+            {
+                var uri = new Uri(options.Endpoint);
+                _baseUrl = $"{uri.Scheme}://{uri.Host}:{uri.Port}";
+            }
+            else
+            {
+                _baseUrl = $"http{(options.EnableSsl ? "s" : "")}://{options.Endpoint}:{options.Port}/api/v1";
+            }
+
             _httpClient = new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(options.Timeout)
             };
 
-            // 支持多种认证方式
+            // 设置认证头
             if (!string.IsNullOrEmpty(options.Token))
             {
-                // Zilliz Cloud Token 认证
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {options.Token}");
             }
             else if (!string.IsNullOrEmpty(options.ApiKey))
             {
-                // API Key 认证
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {options.ApiKey}");
             }
             else if (!string.IsNullOrEmpty(options.Username) && !string.IsNullOrEmpty(options.Password))
             {
-                // 基本认证
                 var authToken = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.Username}:{options.Password}"));
                 _httpClient.DefaultRequestHeaders.Add("Authorization", $"Basic {authToken}");
             }
@@ -52,11 +59,13 @@ namespace Baodian.AI.SemanticKernel.Milvus
             _retryService = retryService;
         }
 
-        public MilvusClient(string host = "localhost", int port = 9091)
-            : this(new MilvusOptions { Host = host, Port = port },
+        public MilvusClient(MilvusOptions options)
+            : this(options,
                   new LoggingService(new Microsoft.Extensions.Logging.Abstractions.NullLogger<LoggingService>(), new MilvusOptions()),
-                  new RetryService(new MilvusOptions(), new LoggingService(new Microsoft.Extensions.Logging.Abstractions.NullLogger<LoggingService>(), new MilvusOptions())))
+                  new RetryService(new MilvusOptions(), 
+                  new LoggingService(new Microsoft.Extensions.Logging.Abstractions.NullLogger<LoggingService>(), new MilvusOptions())))
         {
+
         }
 
         protected async Task<T> GetAsync<T>(string endpoint)

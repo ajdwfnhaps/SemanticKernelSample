@@ -2,12 +2,13 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using Baodian.AI.SemanticKernel.Milvus.Models;
+using Baodian.AI.SemanticKernel.Milvus.Configuration;
 
 namespace Baodian.AI.SemanticKernel.Milvus.Services
 {
     public class SearchService : MilvusClient
     {
-        public SearchService(string host = "localhost", int port = 9091) : base(host, port)
+        public SearchService(MilvusOptions options) : base(options)
         {
         }        public async Task<SearchResponse> SearchAsync(SearchRequest request)
         {

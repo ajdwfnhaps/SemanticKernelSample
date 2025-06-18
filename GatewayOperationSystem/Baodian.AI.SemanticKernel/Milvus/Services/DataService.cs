@@ -1,12 +1,13 @@
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Baodian.AI.SemanticKernel.Milvus.Models;
+using Baodian.AI.SemanticKernel.Milvus.Configuration;
 
 namespace Baodian.AI.SemanticKernel.Milvus.Services
 {
     public class DataService : MilvusClient
     {
-        public DataService(string host = "localhost", int port = 9091) : base(host, port)
+        public DataService(MilvusOptions options) : base(options)
         {
         }        public async Task<DataResponse> InsertAsync(InsertRequest request)
         {
