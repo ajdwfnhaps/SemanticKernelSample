@@ -2,18 +2,22 @@ using Baodian.AI.SemanticKernel.Milvus.Models;
 using Baodian.AI.SemanticKernel.Milvus.Services;
 using GatewayOperationSystem.Core.Models;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace GatewayOperationSystem.API.Controllers;
 
+/// <summary>
+/// 开发测试控制器 - 仅用于开发和测试环境，包含各种测试功能
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
-public class AdminController : ControllerBase
+public class DevelopmentController : ControllerBase
 {
     private readonly DataService _dataService;
     private readonly CollectionService _collectionService;
     private readonly SearchService _searchService;
 
-    public AdminController(DataService dataService,
+    public DevelopmentController(DataService dataService,
         CollectionService collectionService,
         SearchService searchService)
     {
@@ -23,80 +27,14 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// 获取数据库统计信息
-    /// </summary>
-    [HttpGet("database-stats")]
-    public async Task<ActionResult<object>> GetDatabaseStats()
-    {
-        try
-        {
-            var collections = await _collectionService.ListCollectionsAsync();
-            var knowledgeExists = await _collectionService.ExistsAsync("DB_Gate_Knowledge");
-
-            return Ok(new
-            {
-                CollectionExists = knowledgeExists,
-                Collections = collections,
-                Timestamp = DateTime.UtcNow
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Message = "获取数据库统计信息失败", Error = ex.Message });
-        }
-    }    /// <summary>
-         /// 获取所有记录
-         /// </summary>
-    [HttpGet("all-records")]
-    public async Task<ActionResult<IEnumerable<object>>> GetAllRecords()
-    {
-        try
-        {
-            var queryRequest = new QueryRequest
-            {
-                CollectionName = "DB_Gate_Knowledge",
-                Expr = "",
-                OutputFields = new[] { "id", "title", "content", "summary", "category", "tags", "created_at", "updated_at" },
-                PartitionName = ""
-            };
-
-            var allKnowledge = await _dataService.QueryAsync(queryRequest);
-            var records = new List<object>();
-
-            if (allKnowledge?.Data != null && allKnowledge.Data is IEnumerable<Dictionary<string, object>> dataList)
-            {
-                foreach (var item in dataList)
-                {
-                    records.Add(new
-                    {
-                        Id = item.ContainsKey("id") ? item["id"] : null,
-                        Title = item.ContainsKey("title") ? item["title"] : null,
-                        Content = item.ContainsKey("content") ? item["content"] : null,
-                        Summary = item.ContainsKey("summary") ? item["summary"] : null,
-                        Category = item.ContainsKey("category") ? item["category"] : null,
-                        Tags = item.ContainsKey("tags") ? item["tags"] : null,
-                        CreatedAt = item.ContainsKey("created_at") ? item["created_at"] : null,
-                        UpdatedAt = item.ContainsKey("updated_at") ? item["updated_at"] : null
-                    });
-                }
-            }
-
-            return Ok(records);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Message = "获取所有记录失败", Error = ex.Message });
-        }
-    }
-
-    /// <summary>
     /// 添加测试数据
     /// </summary>
-    [HttpPost("add-test-data")]
+    [HttpPost("test-data")]
     public async Task<ActionResult<string>> AddTestData()
     {
         try
-        {            // 确保collection存在
+        {
+            // 确保collection存在
             if (!await _collectionService.ExistsAsync("DB_Gate_Knowledge"))
             {
                 var createRequest = new CreateCollectionRequest
@@ -165,7 +103,7 @@ public class AdminController : ControllerBase
             };
 
             var result = await _dataService.InsertAsync(insertRequest);
-            return Ok($"成功添加 {testKnowledges.Count} 条测试数据，插入ID：{result}");
+            return Ok(new { Message = $"成功添加 {testKnowledges.Count} 条测试数据", InsertId = result, Timestamp = DateTime.UtcNow });
         }
         catch (Exception ex)
         {
@@ -176,14 +114,17 @@ public class AdminController : ControllerBase
     /// <summary>
     /// 测试向量搜索
     /// </summary>
-    [HttpPost("test-vector-search")]
+    [HttpPost("vector-search")]
     public async Task<ActionResult<List<SearchResultItem>>> TestVectorSearch([FromBody] TestSearchRequest request)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(request.Query))
                 return BadRequest("查询内容不能为空");
-            var queryEmbedding = GenerateMockEmbedding(request.Query); var searchRequest = new SearchRequest
+
+            var queryEmbedding = GenerateMockEmbedding(request.Query);
+
+            var searchRequest = new SearchRequest
             {
                 CollectionName = "DB_Gate_Knowledge",
                 Vectors = new List<float[]> { queryEmbedding },
@@ -196,27 +137,27 @@ public class AdminController : ControllerBase
             var results = await _searchService.SearchAsync(searchRequest);
             var searchResults = new List<SearchResultItem>();
 
-            if (results?.Data != null)
+            if (results?.Data.ValueKind == JsonValueKind.Array)
             {
-                foreach (var resultGroup in results.Data)
+                foreach (var resultGroup in results.Data.EnumerateArray())
                 {
-                    if (resultGroup?.Hits != null)
+                    if (resultGroup.TryGetProperty("Hits", out var hits) && hits.ValueKind == JsonValueKind.Array)
                     {
-                        foreach (var hit in resultGroup.Hits)
+                        foreach (var hit in hits.EnumerateArray())
                         {
                             searchResults.Add(new SearchResultItem
                             {
-                                Id = hit.Fields?.ContainsKey("id") == true ? hit.Fields["id"]?.ToString() : null,
-                                Title = hit.Fields?.ContainsKey("title") == true ? hit.Fields["title"]?.ToString() : null,
-                                Content = hit.Fields?.ContainsKey("content") == true ? hit.Fields["content"]?.ToString() : null,
-                                Score = hit.Score
+                                Id = hit.TryGetProperty("id", out var id) ? id.GetString() : null,
+                                Title = hit.TryGetProperty("title", out var title) ? title.GetString() : null,
+                                Content = hit.TryGetProperty("content", out var content) ? content.GetString() : null,
+                                Score = hit.TryGetProperty("score", out var score) ? score.GetSingle() : 0
                             });
                         }
                     }
                 }
             }
 
-            return Ok(searchResults);
+            return Ok(new { Query = request.Query, Results = searchResults, Timestamp = DateTime.UtcNow });
         }
         catch (Exception ex)
         {
@@ -225,28 +166,7 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// 清空所有数据
-    /// </summary>
-    [HttpDelete("clear-all-data/{collectionName}")]
-    public async Task<ActionResult<string>> ClearAllData(string collectionName)
-    {
-        try
-        {
-            if (await _collectionService.ExistsAsync(collectionName))
-            {
-                await _collectionService.DeleteCollectionAsync(collectionName);
-                return Ok($"集合 {collectionName} 已被清空");
-            }
-            return NotFound($"集合 {collectionName} 不存在");
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { Message = "清空数据失败", Error = ex.Message });
-        }
-    }
-
-    /// <summary>
-    /// 全面测试Milvus连接和功能
+    /// 全面功能测试
     /// </summary>
     [HttpPost("comprehensive-test")]
     public async Task<ActionResult<object>> ComprehensiveTest()
@@ -257,7 +177,9 @@ public class AdminController : ControllerBase
             List<SearchResultItem>? searchResults = null;
 
             // 1. 连接测试
-            var connectionTest = await _collectionService.ExistsAsync("DB_Gate_Knowledge");            // 2. 确保集合存在
+            var connectionTest = await _collectionService.ExistsAsync("DB_Gate_Knowledge");
+
+            // 2. 确保集合存在
             if (!connectionTest)
             {
                 var createRequest = new CreateCollectionRequest
@@ -312,7 +234,16 @@ public class AdminController : ControllerBase
             };
 
             var insertResult = await _dataService.InsertAsync(insertRequest);
-            upsertResult = insertResult?.Message ?? "Insert completed";            // 4. 搜索测试
+            if (insertResult.Code == 0 && insertResult.Data.ValueKind != System.Text.Json.JsonValueKind.Null)
+            {
+                upsertResult = insertResult.Data.ToString();
+            }
+            else
+            {
+                upsertResult = "Insert failed or no specific data returned";
+            }
+
+            // 4. 搜索测试
             var searchRequest = new SearchRequest
             {
                 CollectionName = "DB_Gate_Knowledge",
@@ -326,20 +257,20 @@ public class AdminController : ControllerBase
             var searchResponse = await _searchService.SearchAsync(searchRequest);
             searchResults = new List<SearchResultItem>();
 
-            if (searchResponse?.Data != null)
+            if (searchResponse?.Data.ValueKind == JsonValueKind.Array)
             {
-                foreach (var resultGroup in searchResponse.Data)
+                foreach (var resultGroup in searchResponse.Data.EnumerateArray())
                 {
-                    if (resultGroup?.Hits != null)
+                    if (resultGroup.TryGetProperty("Hits", out var hits) && hits.ValueKind == JsonValueKind.Array)
                     {
-                        foreach (var hit in resultGroup.Hits)
+                        foreach (var hit in hits.EnumerateArray())
                         {
                             searchResults.Add(new SearchResultItem
                             {
-                                Id = hit.Fields?.ContainsKey("id") == true ? hit.Fields["id"]?.ToString() : null,
-                                Title = hit.Fields?.ContainsKey("title") == true ? hit.Fields["title"]?.ToString() : null,
-                                Content = hit.Fields?.ContainsKey("content") == true ? hit.Fields["content"]?.ToString() : null,
-                                Score = hit.Score
+                                Id = hit.TryGetProperty("id", out var id) ? id.GetString() : null,
+                                Title = hit.TryGetProperty("title", out var title) ? title.GetString() : null,
+                                Content = hit.TryGetProperty("content", out var content) ? content.GetString() : null,
+                                Score = hit.TryGetProperty("score", out var score) ? score.GetSingle() : 0
                             });
                         }
                     }
@@ -358,11 +289,11 @@ public class AdminController : ControllerBase
 
             return Ok(new
             {
-                Message = "Milvus连接全面测试成功",
+                Message = "系统全面测试完成",
                 TestResults = new
                 {
                     ConnectionTest = connectionTest,
-                    UpsertSuccess = !string.IsNullOrEmpty(upsertResult),
+                    UpsertSuccess = insertResult.Code == 0,
                     SearchResultsCount = searchResults?.Count ?? 0,
                     FirstSearchResult = searchResults?.FirstOrDefault()
                 },
@@ -384,73 +315,51 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// 初始化知识库集合
+    /// 获取所有记录（仅用于调试）
     /// </summary>
-    [HttpPost("init-collection")]
-    public async Task<ActionResult<object>> InitializeCollection()
+    [HttpGet("all-records")]
+    public async Task<ActionResult<IEnumerable<object>>> GetAllRecords()
     {
         try
         {
-            var collectionName = "DB_Gate_Knowledge";
-
-            // 检查集合是否存在
-            var exists = await _collectionService.ExistsAsync(collectionName);
-
-            if (!exists)
-            {                // 创建集合
-                var createRequest = new CreateCollectionRequest
-                {
-                    Name = collectionName,
-                    Description = "Gateway Knowledge Base Collection",
-                    Dimension = 768,
-                    Fields = new List<FieldSchema>
-                    {
-                        new FieldSchema
-                        {
-                            Name = "id",
-                            DataType = "VarChar",
-                            IsPrimaryKey = true,
-                            TypeParams = new Dictionary<string, object> { ["max_length"] = 100 }
-                        },
-                        new FieldSchema
-                        {
-                            Name = "vector",
-                            DataType = "FloatVector",
-                            TypeParams = new Dictionary<string, object> { ["dim"] = 768 }
-                        }
-                    },
-                    EnableDynamicField = true
-                };
-
-                await _collectionService.CreateCollectionAsync(createRequest);
-                await _collectionService.LoadCollectionAsync(collectionName);
-
-                return Ok(new
-                {
-                    Message = $"成功创建并加载集合 {collectionName}",
-                    CollectionName = collectionName,
-                    Dimension = 768,
-                    Status = "Created",
-                    Timestamp = DateTime.UtcNow
-                });
-            }
-            else
+            var queryRequest = new QueryRequest
             {
-                // 确保集合已加载
-                await _collectionService.LoadCollectionAsync(collectionName);
+                CollectionName = "DB_Gate_Knowledge",
+                Expr = "",
+                OutputFields = new[] { "id", "title", "content", "summary", "category", "tags", "created_at", "updated_at" },
+                PartitionName = ""
+            };
 
-                return Ok(new
+            var allKnowledge = await _dataService.QueryAsync(queryRequest);
+            var records = new List<object>();
+
+            if (allKnowledge?.Data.ValueKind == JsonValueKind.Array)
+            {
+                var dataList = JsonSerializer.Deserialize<IEnumerable<Dictionary<string, object>>>(allKnowledge.Data.GetRawText());
+                if (dataList != null)
                 {
-                    Message = $"集合 {collectionName} 已存在并已加载",
-                    CollectionName = collectionName,
-                    Status = "Loaded",
-                    Timestamp = DateTime.UtcNow
-                });
+                    foreach (var item in dataList)
+                    {
+                        records.Add(new
+                        {
+                            Id = item.ContainsKey("id") ? item["id"] : null,
+                            Title = item.ContainsKey("title") ? item["title"] : null,
+                            Content = item.ContainsKey("content") ? item["content"] : null,
+                            Summary = item.ContainsKey("summary") ? item["summary"] : null,
+                            Category = item.ContainsKey("category") ? item["category"] : null,
+                            Tags = item.ContainsKey("tags") ? item["tags"] : null,
+                            CreatedAt = item.ContainsKey("created_at") ? item["created_at"] : null,
+                            UpdatedAt = item.ContainsKey("updated_at") ? item["updated_at"] : null
+                        });
+                    }
+                }
             }
+
+            return Ok(new { Records = records, Count = records.Count, Timestamp = DateTime.UtcNow });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { Message = "初始化集合失败", Error = ex.Message });
+            return StatusCode(500, new { Message = "获取所有记录失败", Error = ex.Message });
         }
     }
 
@@ -463,7 +372,7 @@ public class AdminController : ControllerBase
         {
             knowledges.Add(new KnowledgeBase
             {
-                Id = Guid.NewGuid(),
+                Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Title = $"测试知识{i + 1}",
                 Content = $"这是第{i + 1}个测试知识的内容，包含了丰富的信息和数据。用于测试Milvus向量数据库的存储和检索功能。",
                 Summary = $"测试知识{i + 1}的摘要",
@@ -499,36 +408,6 @@ public class AdminController : ControllerBase
     }
 
     #endregion
-
-    /// <summary>
-    /// 获取用户信息
-    /// </summary>
-    [HttpGet("user/{userId}")]
-    public async Task<ActionResult<object>> GetUser(string userId)
-    {
-        await Task.Delay(100);
-        return Ok(new { UserId = userId, Name = $"用户{userId}", Email = $"user{userId}@example.com" });
-    }
-
-    /// <summary>
-    /// 更新用户信息
-    /// </summary>
-    [HttpPut("user/{userId}")]
-    public async Task<IActionResult> UpdateUser(string userId, [FromBody] string newName)
-    {
-        await Task.Delay(100);
-        return Ok(new { Message = "用户更新成功", UserId = userId, NewName = newName });
-    }
-
-    /// <summary>
-    /// 删除用户
-    /// </summary>
-    [HttpDelete("user/{userId}")]
-    public async Task<IActionResult> DeleteUser(string userId)
-    {
-        await Task.Delay(100);
-        return Ok(new { Message = $"用户 {userId} 已删除" });
-    }
 }
 
 public class TestSearchRequest
@@ -541,6 +420,6 @@ public class SearchResultItem
 {
     public string? Id { get; set; }
     public string? Title { get; set; }
-    public string? Content { get; set; }
+    public string? Content { get; set; }  
     public float Score { get; set; }
 }

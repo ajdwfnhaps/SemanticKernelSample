@@ -4,7 +4,6 @@ using Baodian.AI.SemanticKernel.Milvus.Extensions;
 using Baodian.AI.SemanticKernel.Milvus.Services;
 using GatewayOperationSystem.Core.Configuration;
 using GatewayOperationSystem.Core.Services;
-using GatewayOperationSystem.Infrastructure.Services;
 using Microsoft.OpenApi.Models;
 using Microsoft.SemanticKernel;
 
@@ -74,13 +73,14 @@ using (var scope = app.Services.CreateScope())
     var collectionService = scope.ServiceProvider.GetRequiredService<CollectionService>();
     try
     {
+        var conName = "DB_Gate_Knowledge";
         // 检查集合是否存在，如果不存在则创建
-        var exists = await collectionService.ExistsAsync("DB_Gate_Knowledge");
+        var exists = await collectionService.ExistsAsync(conName);
         if (!exists)
         {
             var createRequest = new Baodian.AI.SemanticKernel.Milvus.Models.CreateCollectionRequest
             {
-                CollectionName = "DB_Gate_Knowledge",
+                CollectionName = conName,
                 Description = "Gateway Knowledge Base Collection with 768 dimensions",
                 EnableDynamicField = true,
                 Dimension = 768,
@@ -89,10 +89,10 @@ using (var scope = app.Services.CreateScope())
                     new Baodian.AI.SemanticKernel.Milvus.Models.FieldSchema
                     {
                         Name = "id",
-                        DataType = "VarChar",
+                        DataType = "Int64",
                         IsPrimaryKey = true,
-                        AutoId = false,
-                        TypeParams = new Dictionary<string, object> { { "max_length", 65535 } }
+                        AutoId = true,
+                        TypeParams = new Dictionary<string, object> { { "max_length", 36 } }
                     },
                     new Baodian.AI.SemanticKernel.Milvus.Models.FieldSchema
                     {
@@ -106,7 +106,7 @@ using (var scope = app.Services.CreateScope())
             };
             
             await collectionService.CreateCollectionAsync(createRequest);
-            await collectionService.LoadCollectionAsync("DB_Gate_Knowledge");
+            await collectionService.LoadCollectionAsync(conName);
             Console.WriteLine("Milvus 768维度集合(DB_Gate_Knowledge)创建并加载成功");
         }
         else

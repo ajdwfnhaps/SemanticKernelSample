@@ -16,9 +16,6 @@ public interface IMilvusService
     Task<bool> TestConnectionAsync();
     
     // 新增方法
-    Task<KnowledgeStats> GetKnowledgeStatsAsync();
-    Task<KnowledgePageResult> GetKnowledgePageAsync(int page = 1, int pageSize = 10);
-    Task<BatchImportResult> BatchImportKnowledgeAsync(List<KnowledgeBase> knowledgeList, Func<string, Task<float[]>> embeddingGenerator);
     Task<bool> DeleteCollectionAsync(string collectionName);
     
     // 集合管理方法

@@ -5,7 +5,7 @@ namespace GatewayOperationSystem.Core.Models;
 public class KnowledgeBase
 {
     [Key]
-    public Guid Id { get; set; }
+    public long Id { get; set; }
     
     [Required]
     [MaxLength(200)]

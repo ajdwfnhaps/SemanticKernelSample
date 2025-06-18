@@ -1,12 +1,19 @@
+using Baodian.AI.SemanticKernel.Milvus.Models;
 using Baodian.AI.SemanticKernel.Milvus.Services;
 using GatewayOperationSystem.Core.Models;
 using GatewayOperationSystem.Core.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace GatewayOperationSystem.API.Controllers;
 
+/// <summary>
+/// AI智能服务控制器 - 负责AI问答、解决方案推荐等智能功能
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class GatewayAIController : ControllerBase
@@ -52,19 +59,27 @@ public class GatewayAIController : ControllerBase
 
             // 构建上下文 - 从 SearchResponse.Data 中提取数据
             var contextList = new List<string>();
-            if (relatedKnowledge?.Data != null)
+            if (relatedKnowledge.Code == 0 && relatedKnowledge.Data.ValueKind == JsonValueKind.Array)
             {
-                foreach (var result in relatedKnowledge.Data)
+                foreach (var resultElement in relatedKnowledge.Data.EnumerateArray())
                 {
-                    if (result.Hits != null)
+                    try
                     {
-                        foreach (var hit in result.Hits)
+                        var result = resultElement.Deserialize<SearchResult>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (result?.Hits != null)
                         {
-                            var fields = hit.Fields;
-                            var title = fields.ContainsKey("title") ? fields["title"]?.ToString() : "";
-                            var content = fields.ContainsKey("content") ? fields["content"]?.ToString() : "";
-                            contextList.Add($"- {title}: {content}");
+                            foreach (var hit in result.Hits)
+                            {
+                                var fields = hit.Fields;
+                                var title = fields.ContainsKey("title") ? fields["title"]?.ToString() : "";
+                                var content = fields.ContainsKey("content") ? fields["content"]?.ToString() : "";
+                                contextList.Add($"- {title}: {content}");
+                            }
                         }
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogError(ex, "解析 SearchResult 失败: {JsonElement}", resultElement.ToString());
                     }
                 }
             }
@@ -86,22 +101,30 @@ public class GatewayAIController : ControllerBase
 
             // 构建相关知识列表
             var relatedKnowledgeList = new List<object>();
-            if (relatedKnowledge?.Data != null)
+            if (relatedKnowledge.Code == 0 && relatedKnowledge.Data.ValueKind == JsonValueKind.Array)
             {
-                foreach (var result in relatedKnowledge.Data)
+                foreach (var resultElement in relatedKnowledge.Data.EnumerateArray())
                 {
-                    if (result.Hits != null)
+                    try
                     {
-                        foreach (var hit in result.Hits)
+                        var result = resultElement.Deserialize<SearchResult>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (result?.Hits != null)
                         {
-                            var fields = hit.Fields;
-                            relatedKnowledgeList.Add(new
+                            foreach (var hit in result.Hits)
                             {
-                                Title = fields.ContainsKey("title") ? fields["title"]?.ToString() : "",
-                                Category = fields.ContainsKey("category") ? fields["category"]?.ToString() : "",
-                                Score = hit.Score
-                            });
+                                var fields = hit.Fields;
+                                relatedKnowledgeList.Add(new
+                                {
+                                    Title = fields.ContainsKey("title") ? fields["title"]?.ToString() : "",
+                                    Category = fields.ContainsKey("category") ? fields["category"]?.ToString() : "",
+                                    Score = hit.Score
+                                });
+                            }
                         }
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogError(ex, "解析 SearchResult 失败: {JsonElement}", resultElement.ToString());
                     }
                 }
             }
@@ -141,31 +164,39 @@ public class GatewayAIController : ControllerBase
             var categorizedSolutions = new Dictionary<string, List<object>>();
             var totalSolutions = 0;
             
-            if (solutions?.Data != null)
+            if (solutions.Code == 0 && solutions.Data.ValueKind == JsonValueKind.Array)
             {
-                foreach (var result in solutions.Data)
+                foreach (var resultElement in solutions.Data.EnumerateArray())
                 {
-                    if (result.Hits != null)
+                    try
                     {
-                        foreach (var hit in result.Hits)
+                        var result = resultElement.Deserialize<SearchResult>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (result?.Hits != null)
                         {
-                            var fields = hit.Fields;
-                            var category = fields.ContainsKey("category") ? fields["category"]?.ToString() ?? "未分类" : "未分类";
-                            
-                            if (!categorizedSolutions.ContainsKey(category))
+                            foreach (var hit in result.Hits)
                             {
-                                categorizedSolutions[category] = new List<object>();
+                                var fields = hit.Fields;
+                                var category = fields.ContainsKey("category") ? fields["category"]?.ToString() ?? "未分类" : "未分类";
+                                
+                                if (!categorizedSolutions.ContainsKey(category))
+                                {
+                                    categorizedSolutions[category] = new List<object>();
+                                }
+                                
+                                categorizedSolutions[category].Add(new
+                                {
+                                    Title = fields.ContainsKey("title") ? fields["title"]?.ToString() : "",
+                                    Content = fields.ContainsKey("content") ? fields["content"]?.ToString() : "",
+                                    Score = hit.Score
+                                });
+                                
+                                totalSolutions++;
                             }
-                            
-                            categorizedSolutions[category].Add(new
-                            {
-                                Title = fields.ContainsKey("title") ? fields["title"]?.ToString() : "",
-                                Content = fields.ContainsKey("content") ? fields["content"]?.ToString() : "",
-                                Score = hit.Score
-                            });
-                            
-                            totalSolutions++;
                         }
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogError(ex, "解析 SearchResult 失败: {JsonElement}", resultElement.ToString());
                     }
                 }
             }

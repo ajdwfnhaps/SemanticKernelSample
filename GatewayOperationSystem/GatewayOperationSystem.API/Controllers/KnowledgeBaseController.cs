@@ -6,9 +6,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace GatewayOperationSystem.API.Controllers;
 
+/// <summary>
+/// 知识库管理控制器 - 负责知识库的CRUD、搜索和数据管理
+/// </summary>
 [Route("api/[controller]")]
 [ApiController]
 public class KnowledgeBaseController : ControllerBase
@@ -87,7 +91,7 @@ public class KnowledgeBaseController : ControllerBase
             }
             var knowledge = new KnowledgeBase
             {
-                Id = Guid.NewGuid(),
+                //Id = Guid.NewGuid(),
                 Title = request.Title,
                 Content = request.Content,
                 Summary = request.Summary,
@@ -95,7 +99,7 @@ public class KnowledgeBaseController : ControllerBase
                 Tags = request.Tags ?? new List<string>(),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
-            };            var embeddings = await _embeddingService.GenerateAsync([request.Content]);
+            }; var embeddings = await _embeddingService.GenerateAsync([request.Content]);
             var embedding = embeddings.First().Vector.ToArray();
             await _dataService.InsertAsync(new InsertRequest
             {
@@ -130,14 +134,28 @@ public class KnowledgeBaseController : ControllerBase
         try
         {
             var existingKnowledgeResponse = await _dataService.GetByIdAsync("DB_Gate_Knowledge", id);
-            if (existingKnowledgeResponse?.Data == null)
+            if (existingKnowledgeResponse.Code != 0 || existingKnowledgeResponse.Data.ValueKind == JsonValueKind.Null)
             {
                 return NotFound($"未找到ID为 {id} 的知识库");
             }
 
             // 从 DataResponse.Data 中解析现有数据
-            var dataList = existingKnowledgeResponse.Data as List<Dictionary<string, object>>;
-            if (dataList == null || dataList.Count == 0)
+            // 预期 Data 是一个包含字典的 JSON 数组
+            var dataList = new List<Dictionary<string, object>>();
+            if (existingKnowledgeResponse.Data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var element in existingKnowledgeResponse.Data.EnumerateArray())
+                {
+                    var dict = new Dictionary<string, object>();
+                    foreach (var prop in element.EnumerateObject())
+                    {
+                        dict[prop.Name] = prop.Value.GetString() ?? prop.Value.ToString(); // 尝试获取字符串，否则使用 ToString()
+                    }
+                    dataList.Add(dict);
+                }
+            }
+
+            if (dataList.Count == 0)
             {
                 return NotFound($"未找到ID为 {id} 的知识库数据");
             }
@@ -194,7 +212,8 @@ public class KnowledgeBaseController : ControllerBase
     public async Task<ActionResult> DeleteKnowledge(string id)
     {
         try
-        {            await _dataService.DeleteAsync(new DeleteRequest
+        {
+            await _dataService.DeleteAsync(new DeleteRequest
             {
                 CollectionName = "DB_Gate_Knowledge",
                 Expr = $"id == '{id}'"
@@ -222,8 +241,8 @@ public class KnowledgeBaseController : ControllerBase
                 return BadRequest("搜索关键词不能为空");
             }
             var embeddings = await _embeddingService.GenerateAsync([request.Query]);
-            var queryEmbedding = embeddings.First().Vector.ToArray();            var results = await _searchService.SearchAsync("DB_Gate_Knowledge", queryEmbedding, request.TopK);
-            var resultCount = results?.Data?.Count ?? 0;
+            var queryEmbedding = embeddings.First().Vector.ToArray(); var results = await _searchService.SearchAsync("DB_Gate_Knowledge", queryEmbedding, request.TopK);
+            var resultCount = results?.Data.ValueKind == JsonValueKind.Array ? results.Data.GetArrayLength() : 0;
             _logger.LogInformation("搜索知识库: {Query}, 结果数量: {Count}", request.Query, resultCount);
             return Ok(results);
         }
@@ -247,7 +266,7 @@ public class KnowledgeBaseController : ControllerBase
                 return BadRequest("标签不能为空");
             }
             var results = await _searchService.SearchByTagsAsync("DB_Gate_Knowledge", request.Tags, request.TopK);
-            var resultCount = results?.Data?.Count ?? 0;
+            var resultCount = results?.Data.ValueKind == JsonValueKind.Array ? results.Data.GetArrayLength() : 0;
             _logger.LogInformation("按标签搜索知识库: {Tags}, 结果数量: {Count}", string.Join(", ", request.Tags), resultCount);
             return Ok(results);
         }
@@ -256,17 +275,34 @@ public class KnowledgeBaseController : ControllerBase
             _logger.LogError(ex, "按标签搜索知识库失败: {Tags}", string.Join(", ", request.Tags ?? new List<string>()));
             return StatusCode(500, $"按标签搜索知识库失败: {ex.Message}");
         }
-    }    /// <summary>
-         /// 获取知识库统计信息
-         /// </summary>
+    }
+
+    /// <summary>
+    /// 获取知识库统计信息
+    /// </summary>
     [HttpGet("stats")]
     public async Task<ActionResult> GetKnowledgeStats()
     {
         try
-        {            // 临时实现，使用现有服务获取统计信息
+        {
+            // 临时实现，使用现有服务获取统计信息
             var allKnowledge = await _dataService.GetAllAsync("DB_Gate_Knowledge");
-            var dataList = allKnowledge.Data as List<Dictionary<string, object>>;
-            var totalCount = dataList?.Count ?? 0;
+            var dataList = new List<Dictionary<string, object>>();
+            if (allKnowledge.Data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var element in allKnowledge.Data.EnumerateArray())
+                {
+                    var dict = new Dictionary<string, object>();
+                    foreach (var prop in element.EnumerateObject())
+                    {
+                        dict[prop.Name] = prop.Value.ValueKind == JsonValueKind.String
+                            ? prop.Value.GetString()
+                            : prop.Value.ToString();
+                    }
+                    dataList.Add(dict);
+                }
+            }
+            var totalCount = dataList.Count;
 
             var stats = new
             {
@@ -281,19 +317,36 @@ public class KnowledgeBaseController : ControllerBase
             _logger.LogError(ex, "获取知识库统计信息失败");
             return StatusCode(500, $"获取知识库统计信息失败: {ex.Message}");
         }
-    }    /// <summary>
-         /// 分页获取知识库记录
-         /// </summary>
+    }
+
+    /// <summary>
+    /// 分页获取知识库记录
+    /// </summary>
     [HttpGet("list")]
     public async Task<ActionResult> GetKnowledgeList(int page = 1, int pageSize = 10)
     {
         try
-        {            // 临时实现，使用现有服务获取分页数据
+        {
+            // 临时实现，使用现有服务获取分页数据
             var allKnowledge = await _dataService.GetAllAsync("DB_Gate_Knowledge");
-            var dataList = allKnowledge.Data as List<Dictionary<string, object>>;
-            var totalCount = dataList?.Count ?? 0;
+            var dataList = new List<Dictionary<string, object>>();
+            if (allKnowledge.Data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var element in allKnowledge.Data.EnumerateArray())
+                {
+                    var dict = new Dictionary<string, object>();
+                    foreach (var prop in element.EnumerateObject())
+                    {
+                        dict[prop.Name] = prop.Value.ValueKind == JsonValueKind.String
+                            ? prop.Value.GetString()
+                            : prop.Value.ToString();
+                    }
+                    dataList.Add(dict);
+                }
+            }
+            var totalCount = dataList.Count;
 
-            var pagedData = dataList?.Skip((page - 1) * pageSize).Take(pageSize).ToList() ?? new List<Dictionary<string, object>>();
+            var pagedData = dataList.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
             var result = new
             {
@@ -339,7 +392,7 @@ public class KnowledgeBaseController : ControllerBase
                     {
                         knowledgeList = jsonData.Select(item => new KnowledgeBase
                         {
-                            Id = Guid.NewGuid(),
+                            //Id = Guid.NewGuid(),
                             Title = item.Title,
                             Content = item.Content,
                             Category = item.Category ?? "未分类",
@@ -365,7 +418,7 @@ public class KnowledgeBaseController : ControllerBase
                                 {
                                     knowledgeList.Add(new KnowledgeBase
                                     {
-                                        Id = Guid.NewGuid(),
+                                        //Id = Guid.NewGuid(),
                                         Title = fields[0].Trim('"'),
                                         Content = fields[1].Trim('"'),
                                         Category = fields.Length > 2 ? fields[2].Trim('"') : "未分类",
@@ -396,7 +449,7 @@ public class KnowledgeBaseController : ControllerBase
                 try
                 {
                     var embeddings = await _embeddingService.GenerateAsync([knowledge.Content]);
-                    var embedding = embeddings.First().Vector.ToArray();                    await _dataService.InsertAsync(new InsertRequest
+                    var embedding = embeddings.First().Vector.ToArray(); await _dataService.InsertAsync(new InsertRequest
                     {
                         CollectionName = "DB_Gate_Knowledge",
                         Data = new List<Dictionary<string, object>> {

@@ -51,7 +51,7 @@ namespace Baodian.AI.SemanticKernel.Milvus.Services
             try
             {
                 var response = await GetCollectionAsync(collectionName);
-                return response != null && response.Status == "success";
+                return response != null && response.Code == 0;
             }
             catch
             {

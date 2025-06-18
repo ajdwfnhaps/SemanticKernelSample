@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 
 namespace Baodian.AI.SemanticKernel.Milvus.Models
 {
@@ -49,8 +50,7 @@ namespace Baodian.AI.SemanticKernel.Milvus.Models
 
     public class SearchResponse
     {
-        public string Status { get; set; }
-        public string Message { get; set; }
-        public List<SearchResult> Data { get; set; }
+        public int Code { get; set; }
+        public JsonElement Data { get; set; }
     }
 } 
