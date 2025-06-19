@@ -47,7 +47,8 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles();
 
 app.UseHttpsRedirection();
-app.UseAuthorization();
+app.UseAuthorization()
+   .UseBaodianAIDeepSeek();
 
 app.MapControllers();
 

@@ -1,6 +1,9 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Baodian.AI.SemanticKernel.Constants;
 using Baodian.AI.SemanticKernel.Memory;
+using Baodian.AI.SemanticKernel.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GatewayOperationSystem.API.Controllers
@@ -10,10 +13,12 @@ namespace GatewayOperationSystem.API.Controllers
     public class MemoryController : ControllerBase
     {
         private readonly MemoryService _memoryService;
+        private readonly ChatService _chatService;
 
-        public MemoryController(MemoryService memoryService)
+        public MemoryController(MemoryService memoryService, ChatService chatService)
         {
             _memoryService = memoryService;
+            _chatService = chatService;
         }
 
         /// <summary>
@@ -89,21 +94,29 @@ namespace GatewayOperationSystem.API.Controllers
         }
 
         /// <summary>
+        /// 获取 RAG 问答。
+        /// </summary>
+        /// <param name="dto">RAG 问答请求参数</param>
+        /// <returns>问答结果</returns>
+        [HttpPost("rag-answer")]
+        public async Task<IActionResult> RagAnswer([FromBody] RagContextRequestDto dto)
+        {
+            var docs = await _memoryService.SearchAsync(dto.Query, new MemoryRetrievalOptions { TopK = dto.MaxResults });
+            var context = string.Join("\n", docs.Select(d => d.Content));
+            var prompt = $"已知信息：\n{context}\n\n用户问题：{dto.Query}\n请基于已知信息专业、简明地回答用户问题。";
+            var answer = await _chatService.InvokePromptAsync(ModelConstants.DeepSeekChat, prompt);
+            return Ok(new { answer });
+        }
+
+        /// <summary>
         /// 获取所有集合名称。
         /// </summary>
         /// <returns>集合名称列表</returns>
         [HttpGet("collections")]
         public IActionResult GetCollections()
         {
-            // TODO: 实际应从 Milvus 或 MemoryStore 查询集合列表
-            // 这里只做演示，假设 MemoryStore 支持获取集合名
-            if (_memoryService is IMemoryStoreProvider provider)
-            {
-                var collections = provider.GetAllCollectionNames();
-                return Ok(collections);
-            }
-            // 若不支持，返回默认集合
-            return Ok(new[] { "knowledge_base" });
+            var collections = _memoryService.GetAllCollections();
+            return Ok(collections);
         }
 
         /// <summary>
@@ -114,14 +127,8 @@ namespace GatewayOperationSystem.API.Controllers
         [HttpGet("collection/{collectionName}")]
         public IActionResult GetCollectionInfo(string collectionName)
         {
-            // TODO: 实际应从 Milvus 或 MemoryStore 查询集合详细信息
-            if (_memoryService is IMemoryStoreProvider provider)
-            {
-                var info = provider.GetCollectionInfo(collectionName);
-                return Ok(info);
-            }
-            // 若不支持，返回简单信息
-            return Ok(new { collectionName, status = "ok" });
+            var info = _memoryService.GetCollectionInfo(collectionName);
+            return Ok(info);
         }
     }
 

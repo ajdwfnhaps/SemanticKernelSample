@@ -97,7 +97,7 @@
         <h2>1. 存储文档到 Memory</h2>
         <div class="form-group">
             <label for="collectionName">集合名称:</label>
-            <input type="text" id="collectionName" value="knowledge_base" placeholder="输入集合名称">
+            <input type="text" id="collectionName" value="BD_CWB_Col" placeholder="输入集合名称">
         </div>
         <div class="form-group">
             <label for="documentId">文档ID:</label>
@@ -120,7 +120,7 @@
         <h2>2. 语义搜索</h2>
         <div class="form-group">
             <label for="searchCollection">集合名称:</label>
-            <input type="text" id="searchCollection" value="knowledge_base" placeholder="输入集合名称">
+            <input type="text" id="searchCollection" value="BD_CWB_Col" placeholder="输入集合名称">
         </div>
         <div class="form-group">
             <label for="searchQuery">搜索查询:</label>
@@ -143,7 +143,7 @@
         <h2>3. 混合搜索</h2>
         <div class="form-group">
             <label for="hybridCollection">集合名称:</label>
-            <input type="text" id="hybridCollection" value="knowledge_base" placeholder="输入集合名称">
+            <input type="text" id="hybridCollection" value="BD_CWB_Col" placeholder="输入集合名称">
         </div>
         <div class="form-group">
             <label for="hybridQuery">搜索查询:</label>
@@ -158,7 +158,7 @@
         <h2>4. 创建 RAG 上下文</h2>
         <div class="form-group">
             <label for="ragCollection">集合名称:</label>
-            <input type="text" id="ragCollection" value="knowledge_base" placeholder="输入集合名称">
+            <input type="text" id="ragCollection" value="BD_CWB_Col" placeholder="输入集合名称">
         </div>
         <div class="form-group">
             <label for="ragQuery">用户问题:</label>
@@ -174,6 +174,29 @@
         <button onclick="getCollections()">获取所有集合</button>
         <button onclick="getCollectionInfo()">获取集合信息</button>
         <div id="collectionResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- RAG 问答（大模型分析） -->
+    <div class="container api-section">
+        <h2>6. RAG 大模型问答</h2>
+        <div class="form-group">
+            <label for="ragAnswerCollection">集合名称:</label>
+            <input type="text" id="ragAnswerCollection" value="knowledge_base" placeholder="输入集合名称">
+        </div>
+        <div class="form-group">
+            <label for="ragAnswerQuery">用户问题:</label>
+            <input type="text" id="ragAnswerQuery" value="人工智能有哪些应用领域？" placeholder="输入用户问题">
+        </div>
+        <div class="form-group">
+            <label for="ragAnswerMaxResults">检索片段数:</label>
+            <select id="ragAnswerMaxResults">
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+            </select>
+        </div>
+        <button onclick="ragAnswer()">大模型问答</button>
+        <div id="ragAnswerResult" class="result" style="display: none;"></div>
     </div>
 
     <script>
@@ -276,10 +299,21 @@
         }
 
         async function getCollectionInfo() {
-            const collectionName = document.getElementById('collectionName').value || 'knowledge_base';
+            const collectionName = document.getElementById('collectionName').value || 'BD_CWB_Col';
             const result = await makeRequest(`${API_BASE}/collection/${collectionName}`);
             showResult('collectionResult', result, !result.success);
         }
+
+        async function ragAnswer() {
+            const data = {
+                collectionName: document.getElementById('ragAnswerCollection').value,
+                query: document.getElementById('ragAnswerQuery').value,
+                maxResults: parseInt(document.getElementById('ragAnswerMaxResults').value),
+                minRelevanceScore: 0.7
+            };
+            const result = await makeRequest(`${API_BASE}/rag-answer`, 'POST', data);
+            showResult('ragAnswerResult', result, !result.success);
+        }
     </script>
 </body>
-</html> 
+</html>
