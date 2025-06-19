@@ -15,7 +15,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\..\..\Works\CuiHua\SourceCode\core\Baodian.AI.SemanticKernel\Baodian.AI.SemanticKernel.csproj" />
-    <ProjectReference Include="..\GatewayOperationSystem.Core\GatewayOperationSystem.Core.csproj" />
   </ItemGroup>
 
 </Project>

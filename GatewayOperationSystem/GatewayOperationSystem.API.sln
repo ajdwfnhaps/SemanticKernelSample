@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36212.18 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GatewayOperationSystem.API", "GatewayOperationSystem.API\GatewayOperationSystem.API.csproj", "{89DD1C18-23A5-C2F7-3486-588DC2189905}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Baodian.AI.SemanticKernel", "..\..\..\..\..\Works\CuiHua\SourceCode\core\Baodian.AI.SemanticKernel\Baodian.AI.SemanticKernel.csproj", "{7D5611B3-1C1A-7FB9-0C7B-B74C5C9BFFF0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{89DD1C18-23A5-C2F7-3486-588DC2189905}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{89DD1C18-23A5-C2F7-3486-588DC2189905}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{89DD1C18-23A5-C2F7-3486-588DC2189905}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{89DD1C18-23A5-C2F7-3486-588DC2189905}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D5611B3-1C1A-7FB9-0C7B-B74C5C9BFFF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D5611B3-1C1A-7FB9-0C7B-B74C5C9BFFF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D5611B3-1C1A-7FB9-0C7B-B74C5C9BFFF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D5611B3-1C1A-7FB9-0C7B-B74C5C9BFFF0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {50A84A2F-4BF8-4FB2-8430-1FBBFB60CB11}
+	EndGlobalSection
+EndGlobal
