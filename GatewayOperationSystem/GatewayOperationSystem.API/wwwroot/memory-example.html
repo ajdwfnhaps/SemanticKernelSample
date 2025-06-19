@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory API 使用示例</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #555;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007acc;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #005a9e;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007acc;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background-color: #d4edda;
+        }
+        .api-section {
+            margin-bottom: 30px;
+        }
+        .response {
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>百炼 AI + Semantic Kernel + Milvus Memory API 示例</h1>
+
+    <!-- 存储文档 -->
+    <div class="container api-section">
+        <h2>1. 存储文档到 Memory</h2>
+        <div class="form-group">
+            <label for="collectionName">集合名称:</label>
+            <input type="text" id="collectionName" value="knowledge_base" placeholder="输入集合名称">
+        </div>
+        <div class="form-group">
+            <label for="documentId">文档ID:</label>
+            <input type="text" id="documentId" value="doc_001" placeholder="输入文档ID">
+        </div>
+        <div class="form-group">
+            <label for="documentContent">文档内容:</label>
+            <textarea id="documentContent" placeholder="输入要存储的文档内容">人工智能（AI）是计算机科学的一个分支，它企图了解智能的实质，并生产出一种新的能以人类智能相似的方式做出反应的智能机器。该领域的研究包括机器人、语言识别、图像识别、自然语言处理和专家系统等。人工智能从诞生以来，理论和技术日益成熟，应用领域也不断扩大，可以设想，未来人工智能带来的科技产品，将会是人类智慧的"容器"。</textarea>
+        </div>
+        <div class="form-group">
+            <label for="documentDescription">文档描述:</label>
+            <input type="text" id="documentDescription" value="人工智能介绍文档" placeholder="输入文档描述">
+        </div>
+        <button onclick="storeDocument()">存储文档</button>
+        <div id="storeResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- 语义搜索 -->
+    <div class="container api-section">
+        <h2>2. 语义搜索</h2>
+        <div class="form-group">
+            <label for="searchCollection">集合名称:</label>
+            <input type="text" id="searchCollection" value="knowledge_base" placeholder="输入集合名称">
+        </div>
+        <div class="form-group">
+            <label for="searchQuery">搜索查询:</label>
+            <input type="text" id="searchQuery" value="什么是人工智能" placeholder="输入搜索查询">
+        </div>
+        <div class="form-group">
+            <label for="searchLimit">返回结果数量:</label>
+            <select id="searchLimit">
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+            </select>
+        </div>
+        <button onclick="searchDocuments()">执行搜索</button>
+        <div id="searchResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- 混合搜索 -->
+    <div class="container api-section">
+        <h2>3. 混合搜索</h2>
+        <div class="form-group">
+            <label for="hybridCollection">集合名称:</label>
+            <input type="text" id="hybridCollection" value="knowledge_base" placeholder="输入集合名称">
+        </div>
+        <div class="form-group">
+            <label for="hybridQuery">搜索查询:</label>
+            <input type="text" id="hybridQuery" value="智能机器" placeholder="输入搜索查询">
+        </div>
+        <button onclick="hybridSearch()">执行混合搜索</button>
+        <div id="hybridResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- RAG 上下文 -->
+    <div class="container api-section">
+        <h2>4. 创建 RAG 上下文</h2>
+        <div class="form-group">
+            <label for="ragCollection">集合名称:</label>
+            <input type="text" id="ragCollection" value="knowledge_base" placeholder="输入集合名称">
+        </div>
+        <div class="form-group">
+            <label for="ragQuery">用户问题:</label>
+            <input type="text" id="ragQuery" value="人工智能有哪些应用领域？" placeholder="输入用户问题">
+        </div>
+        <button onclick="createRagContext()">创建 RAG 上下文</button>
+        <div id="ragResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- 集合管理 -->
+    <div class="container api-section">
+        <h2>5. 集合管理</h2>
+        <button onclick="getCollections()">获取所有集合</button>
+        <button onclick="getCollectionInfo()">获取集合信息</button>
+        <div id="collectionResult" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/memory';
+
+        async function makeRequest(url, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+
+                const response = await fetch(url, options);
+                const result = await response.json();
+                
+                return {
+                    success: response.ok,
+                    data: result,
+                    status: response.status
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error.message
+                };
+            }
+        }
+
+        function showResult(elementId, result, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${isError ? 'error' : 'success'}`;
+            
+            if (result.success) {
+                element.innerHTML = `<strong>成功!</strong><br><div class="response">${JSON.stringify(result.data, null, 2)}</div>`;
+            } else {
+                element.innerHTML = `<strong>错误!</strong><br><div class="response">${JSON.stringify(result, null, 2)}</div>`;
+            }
+        }
+
+        async function storeDocument() {
+            const data = {
+                collectionName: document.getElementById('collectionName').value,
+                documentId: document.getElementById('documentId').value,
+                content: document.getElementById('documentContent').value,
+                description: document.getElementById('documentDescription').value,
+                chunkSize: 1000,
+                chunkOverlap: 200
+            };
+
+            const result = await makeRequest(`${API_BASE}/store`, 'POST', data);
+            showResult('storeResult', result, !result.success);
+        }
+
+        async function searchDocuments() {
+            const data = {
+                collectionName: document.getElementById('searchCollection').value,
+                query: document.getElementById('searchQuery').value,
+                limit: parseInt(document.getElementById('searchLimit').value),
+                minRelevanceScore: 0.7
+            };
+
+            const result = await makeRequest(`${API_BASE}/search`, 'POST', data);
+            showResult('searchResult', result, !result.success);
+        }
+
+        async function hybridSearch() {
+            const data = {
+                collectionName: document.getElementById('hybridCollection').value,
+                query: document.getElementById('hybridQuery').value,
+                limit: 5,
+                minRelevanceScore: 0.7
+            };
+
+            const result = await makeRequest(`${API_BASE}/hybrid-search`, 'POST', data);
+            showResult('hybridResult', result, !result.success);
+        }
+
+        async function createRagContext() {
+            const data = {
+                collectionName: document.getElementById('ragCollection').value,
+                query: document.getElementById('ragQuery').value,
+                maxResults: 5,
+                minRelevanceScore: 0.7
+            };
+
+            const result = await makeRequest(`${API_BASE}/rag-context`, 'POST', data);
+            showResult('ragResult', result, !result.success);
+        }
+
+        async function getCollections() {
+            const result = await makeRequest(`${API_BASE}/collections`);
+            showResult('collectionResult', result, !result.success);
+        }
+
+        async function getCollectionInfo() {
+            const collectionName = document.getElementById('collectionName').value || 'knowledge_base';
+            const result = await makeRequest(`${API_BASE}/collection/${collectionName}`);
+            showResult('collectionResult', result, !result.success);
+        }
+    </script>
+</body>
+</html> 

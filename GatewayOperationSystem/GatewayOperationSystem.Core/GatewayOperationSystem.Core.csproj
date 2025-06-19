@@ -10,7 +10,7 @@
   <ItemGroup>
     <!-- Only keep the correct Identity package for EF Core -->
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.2" />
-    <PackageReference Include="Microsoft.SemanticKernel" Version="1.54.0" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.57.0" />
   </ItemGroup>
 
 </Project>
