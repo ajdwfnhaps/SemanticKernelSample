@@ -64,6 +64,10 @@ namespace GatewayOperationSystem.API.Controllers
         {
             var options = new MemoryRetrievalOptions { TopK = dto.Limit, Filter = null, UseHybrid = true };
             var result = await _memoryService.SearchAsync(dto.Query, options);
+            foreach (var item in result)
+            {
+                item.Vector = Array.Empty<float>(); // Replace null assignment with an empty array
+            }
             return Ok(result);
         }
 
@@ -77,6 +81,10 @@ namespace GatewayOperationSystem.API.Controllers
         {
             var options = new MemoryRetrievalOptions { TopK = dto.MaxResults, Filter = null };
             var result = await _memoryService.SearchAsync(dto.Query, options);
+            foreach (var item in result)
+            {
+                item.Vector = Array.Empty<float>(); // Replace null assignment with an empty array
+            }
             return Ok(result);
         }
 
