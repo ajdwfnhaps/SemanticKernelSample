@@ -199,6 +199,40 @@
         <div id="ragAnswerResult" class="result" style="display: none;"></div>
     </div>
 
+    <!-- 文件导入 -->
+    <div class="container api-section">
+        <h2>7. 文件导入到知识库</h2>
+        <form id="importFileForm" enctype="multipart/form-data" onsubmit="importFile(event)">
+            <div class="form-group">
+                <label for="importFileCollection">集合名称:</label>
+                <input type="text" id="importFileCollection" value="BD_CWB_Col" placeholder="输入集合名称">
+            </div>
+            <div class="form-group">
+                <label for="importFileInput">选择文件:</label>
+                <input type="file" id="importFileInput" accept=".txt,.html,.htm,.pdf,.docx,.xlsx">
+            </div>
+            <button type="submit">导入文件</button>
+        </form>
+        <div id="importFileResult" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- URL 导入 -->
+    <div class="container api-section">
+        <h2>8. 网页内容导入到知识库</h2>
+        <form id="importUrlForm" onsubmit="importUrl(event)">
+            <div class="form-group">
+                <label for="importUrlCollection">集合名称:</label>
+                <input type="text" id="importUrlCollection" value="BD_CWB_Col" placeholder="输入集合名称">
+            </div>
+            <div class="form-group">
+                <label for="importUrlInput">网页URL:</label>
+                <input type="text" id="importUrlInput" placeholder="输入要导入的网页URL">
+            </div>
+            <button type="submit">导入网页</button>
+        </form>
+        <div id="importUrlResult" class="result" style="display: none;"></div>
+    </div>
+
     <script>
         const API_BASE = '/api/memory';
 
@@ -313,6 +347,53 @@
             };
             const result = await makeRequest(`${API_BASE}/rag-answer`, 'POST', data);
             showResult('ragAnswerResult', result, !result.success);
+        }
+
+        async function importFile(event) {
+            event.preventDefault();
+            const form = document.getElementById('importFileForm');
+            const fileInput = document.getElementById('importFileInput');
+            const collection = document.getElementById('importFileCollection').value;
+            if (!fileInput.files.length) {
+                showResult('importFileResult', { success: false, error: '请选择文件' }, true);
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('collectionName', collection);
+            try {
+                const response = await fetch(`${API_BASE}/import-file`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                showResult('importFileResult', { success: response.ok, data: result }, !response.ok);
+            } catch (error) {
+                showResult('importFileResult', { success: false, error: error.message }, true);
+            }
+        }
+
+        async function importUrl(event) {
+            event.preventDefault();
+            const url = document.getElementById('importUrlInput').value;
+            const collection = document.getElementById('importUrlCollection').value;
+            if (!url) {
+                showResult('importUrlResult', { success: false, error: '请输入URL' }, true);
+                return;
+            }
+            const formData = new FormData();
+            formData.append('url', url);
+            formData.append('collectionName', collection);
+            try {
+                const response = await fetch(`${API_BASE}/import-url`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                showResult('importUrlResult', { success: response.ok, data: result }, !response.ok);
+            } catch (error) {
+                showResult('importUrlResult', { success: false, error: error.message }, true);
+            }
         }
     </script>
 </body>
