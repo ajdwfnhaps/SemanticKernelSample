@@ -1,6 +1,0 @@
-@GatewayOperationSystem.API_HostAddress = http://localhost:5020
-
-GET {{GatewayOperationSystem.API_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
