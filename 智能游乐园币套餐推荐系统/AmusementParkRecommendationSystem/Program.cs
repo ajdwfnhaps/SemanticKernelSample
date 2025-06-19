@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using System.Diagnostics;
+using Baodian.AI.SemanticKernel;
 
 namespace AmusementParkRecommendationSystem;
 
@@ -57,8 +58,10 @@ class Program
                 Console.WriteLine("16. OpenTelemetry 追踪演示");
                 Console.WriteLine("17. 查看当前追踪信息");
                 Console.WriteLine();
+                Console.WriteLine("18. NL2SQL：自然语言转MySQL语句");
+                Console.WriteLine();
                 Console.WriteLine("0. 退出系统");
-                Console.Write("请输入选项 (0-17): ");
+                Console.Write("请输入选项 (0-18): ");
 
                 var choice = Console.ReadLine();
                 Console.WriteLine(); switch (choice)
@@ -114,9 +117,14 @@ class Program
                     case "17":
                         ShowCurrentTraceInfo(telemetryDemoService);
                         break;
+
+                    case "18":
+                        await NL2SQLAsync(serviceProvider);
+                        break;
                     case "0":
                         Console.WriteLine("感谢使用智能推荐系统，再见！");
                         return;
+
                     default:
                         Console.WriteLine("无效选项，请重新选择。");
                         break;
@@ -143,7 +151,7 @@ class Program
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .Build(); 
+            .Build();
         var services = new ServiceCollection();
 
         // 注册配置
@@ -152,6 +160,7 @@ class Program
         // 添加OpenTelemetry服务
         services.AddOpenTelemetryServices(configuration);
         services.AddSemanticKernelTracing();
+        services.AddAliyunQwen235BChatService(configuration);        // 添加AI HttpClient工厂
 
         // 添加日志服务
         services.AddLogging(builder =>
@@ -1343,4 +1352,29 @@ class Program
     }
 
     #endregion
+
+    /// <summary>
+    /// 18. NL2SQL：自然语言转MySQL语句
+    /// </summary>
+    private static async Task NL2SQLAsync(IServiceProvider serviceProvider)
+    {
+        var qwen = serviceProvider.GetRequiredService<Baodian.AI.SemanticKernel.Services.AliyunQwen235BChatService>();
+        Console.WriteLine("请输入要转换为SQL的自然语言问题（如：查询所有会员的姓名和余额）：");
+        var input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            Console.WriteLine("输入不能为空。");
+            return;
+        }
+        // 构造 prompt
+        var systemPrompt = "你是一个SQL专家，请将用户的自然语言问题转换为MySQL可执行的SQL语句，只返回SQL，不要解释。";
+        var messages = new Baodian.AI.SemanticKernel.Services.AliyunQwen235BChatService.QwenMessage[]
+        {
+            new() { Role = "system", Content = systemPrompt },
+            new() { Role = "user", Content = input }
+        };
+        var sql = await qwen.ChatAsync(messages);
+        Console.WriteLine("\n【生成的SQL语句】：");
+        Console.WriteLine(sql);
+    }
 }

@@ -4,6 +4,8 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AmusementParkRecommendationSystem", "AmusementParkRecommendationSystem\AmusementParkRecommendationSystem.csproj", "{82F728F3-A244-0058-DB8C-0FE627522C03}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Baodian.AI.SemanticKernel", "..\..\..\..\..\Works\CuiHua\SourceCode\core\Baodian.AI.SemanticKernel\Baodian.AI.SemanticKernel.csproj", "{2269564C-CAA6-C990-E6DB-63B983F39E0A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,10 @@ Global
 		{82F728F3-A244-0058-DB8C-0FE627522C03}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{82F728F3-A244-0058-DB8C-0FE627522C03}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{82F728F3-A244-0058-DB8C-0FE627522C03}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2269564C-CAA6-C990-E6DB-63B983F39E0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2269564C-CAA6-C990-E6DB-63B983F39E0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2269564C-CAA6-C990-E6DB-63B983F39E0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2269564C-CAA6-C990-E6DB-63B983F39E0A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
