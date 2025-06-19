@@ -95,6 +95,14 @@ namespace GatewayOperationSystem.API.Controllers
         [HttpGet("collections")]
         public IActionResult GetCollections()
         {
+            // TODO: 实际应从 Milvus 或 MemoryStore 查询集合列表
+            // 这里只做演示，假设 MemoryStore 支持获取集合名
+            if (_memoryService is IMemoryStoreProvider provider)
+            {
+                var collections = provider.GetAllCollectionNames();
+                return Ok(collections);
+            }
+            // 若不支持，返回默认集合
             return Ok(new[] { "knowledge_base" });
         }
 
@@ -106,6 +114,13 @@ namespace GatewayOperationSystem.API.Controllers
         [HttpGet("collection/{collectionName}")]
         public IActionResult GetCollectionInfo(string collectionName)
         {
+            // TODO: 实际应从 Milvus 或 MemoryStore 查询集合详细信息
+            if (_memoryService is IMemoryStoreProvider provider)
+            {
+                var info = provider.GetCollectionInfo(collectionName);
+                return Ok(info);
+            }
+            // 若不支持，返回简单信息
             return Ok(new { collectionName, status = "ok" });
         }
     }
