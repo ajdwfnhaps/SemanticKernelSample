@@ -2,13 +2,14 @@
 using AmusementParkRecommendationSystem.Models;
 using AmusementParkRecommendationSystem.Plugins;
 using AmusementParkRecommendationSystem.Services;
+using Baodian.AI.SemanticKernel;
+using Baodian.AI.SemanticKernel.Plugins;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using System.Diagnostics;
-using Baodian.AI.SemanticKernel;
 
 namespace AmusementParkRecommendationSystem;
 
@@ -223,6 +224,8 @@ class Program
             var dataService = serviceProvider.GetRequiredService<DataService>();
             var plugin = new CoinPackageRecommendationPlugin(dataService);
             kernel.Plugins.AddFromObject(plugin, "CoinPackageRecommendation");
+
+            //PluginDiscovery.RegisterPlugins(kernel);
             return kernel;
         });
 
