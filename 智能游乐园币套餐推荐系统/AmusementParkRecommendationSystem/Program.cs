@@ -1,14 +1,18 @@
-﻿using AmusementParkRecommendationSystem.Filter;
+﻿#pragma warning disable SKEXP0060
+
+using AmusementParkRecommendationSystem.Filter;
 using AmusementParkRecommendationSystem.Models;
 using AmusementParkRecommendationSystem.Plugins;
 using AmusementParkRecommendationSystem.Services;
 using Baodian.AI.SemanticKernel;
 using Baodian.AI.SemanticKernel.Plugins;
+using HandlebarsDotNet;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Planning.Handlebars;
 using System.Diagnostics;
 
 namespace AmusementParkRecommendationSystem;
@@ -61,8 +65,10 @@ class Program
                 Console.WriteLine();
                 Console.WriteLine("18. NL2SQL：自然语言转MySQL语句");
                 Console.WriteLine();
+                Console.WriteLine("19. HandlebarsPlanner测试");
+                Console.WriteLine();
                 Console.WriteLine("0. 退出系统");
-                Console.Write("请输入选项 (0-18): ");
+                Console.Write("请输入选项 (0-19): ");
 
                 var choice = Console.ReadLine();
                 Console.WriteLine(); switch (choice)
@@ -121,6 +127,9 @@ class Program
 
                     case "18":
                         await NL2SQLAsync(serviceProvider);
+                        break;
+                    case "19":
+                        await StepwisePersonalizedRecommendationAsync(serviceProvider);
                         break;
                     case "0":
                         Console.WriteLine("感谢使用智能推荐系统，再见！");
@@ -224,6 +233,26 @@ class Program
             var dataService = serviceProvider.GetRequiredService<DataService>();
             var plugin = new CoinPackageRecommendationPlugin(dataService);
             kernel.Plugins.AddFromObject(plugin, "CoinPackageRecommendation");
+            var plugin2 = new EnhancedBusinessAnalysisPlugin(dataService);
+            kernel.Plugins.AddFromObject(plugin2, "EnhancedBusinessAnalysis");
+
+            Handlebars.RegisterHelper("maxBy", (writer, context, parameters) =>
+            {
+                if (writer is HandlebarsDotNet.EncodedTextWriter encodedWriter)
+                {
+                    var list = parameters[0] as IEnumerable<dynamic>;
+                    var property = parameters[1] as string;
+                    if (list != null && property != null)
+                    {
+                        var maxItem = list.OrderByDescending(x => (double)x[property]).FirstOrDefault();
+                        encodedWriter.Write(maxItem?.ToString());
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("Writer is not of type EncodedTextWriter.");
+                }
+            });
 
             //PluginDiscovery.RegisterPlugins(kernel);
             return kernel;
@@ -1380,4 +1409,39 @@ class Program
         Console.WriteLine("\n【生成的SQL语句】：");
         Console.WriteLine(sql);
     }
+
+
+
+    //个性化深度推荐实现
+    private static async Task StepwisePersonalizedRecommendationAsync(IServiceProvider serviceProvider)
+    {
+        Console.WriteLine("=== Stepwise 个性化深度推荐（HandlebarsPlanner） ===");
+        var kernel = serviceProvider.GetRequiredService<Kernel>();
+
+        // 目标描述：让 LLM 自动规划并调用插件
+        string goal = "1. 查询所有会员；2. 找出消费金额最高的会员（调用GetComprehensiveMemberAnalysis）；3. 获取可用的币套餐列表，4.推荐一个最适合的套餐，并输出推荐理由。";
+
+        // 创建 HandlebarsPlanner
+        var planner = new HandlebarsPlanner(new HandlebarsPlannerOptions
+        {
+            AllowLoops = true
+        });
+        var plan = await planner.CreatePlanAsync(kernel, goal);
+        Console.WriteLine("【自动规划步骤】:");
+        Console.WriteLine(plan.ToString());
+
+        // 执行计划
+        var result = await plan.InvokeAsync(kernel);
+        Console.WriteLine("【HandlebarsPlanner 执行结果】：");
+        if (result != null)
+        {
+            Console.WriteLine(result);
+        }
+        else
+        {
+            Console.WriteLine("没有返回结果。");
+        }
+    }
+
+
 }

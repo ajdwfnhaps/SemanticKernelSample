@@ -19,6 +19,24 @@ public class CoinPackageRecommendationPlugin
     }
 
     [KernelFunction]
+    [Description("获取会员列表信息")]
+    public string GetAllMembers()
+    {
+        var members=_dataService.GetAllMembers();
+        if (members == null)
+        {
+            return "没有会员";
+        }
+
+        return JsonSerializer.Serialize(members, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+    }
+    
+
+    [KernelFunction]
     [Description("获取会员的消费统计信息")]
     public string GetMemberConsumptionStats(
         [Description("会员ID")] int memberId)
